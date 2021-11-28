@@ -15,12 +15,14 @@ class Car:
         self.path = [sourceDirection]
         self.locations = [source]
         self.generatePath()
-        self.time = [0,0,0,0]
+        #print(self.locations)
+        #print(self.path)
+        self.time = [0,0,0,0,0]
+        self.path.pop(0)
+        self.fullPath = self.path.copy()
 
     def generatePath(self):
-        l = 4
-        if r.randint(0,1) == 1:
-            l+=1
+        l = r.choice([3,3,3,4,4,4,5])
 
         while len(self.path) < l:
             next_1, next_2 = getRandomTurn(self.locations[-1], self.path[-1], len(self.path), l)
@@ -28,13 +30,22 @@ class Car:
             self.locations.append(next_2)
 
     def getNext(self):
-        return self.direction[self.path.pop(0)]
+        try:
+            return self.direction[self.path.pop(0)]
+        except:
+            print(self.path)
+            print(self.fullPath)
+            print(self.locations)
+            return
 
     def addTime(self):
         self.time[4-len(self.path)] += 1
 
     def getTime(self):
         return self.time[4-len(self.path)]
+
+    def getTotalTime(self):
+        return sum(self.time)
 
 
 
