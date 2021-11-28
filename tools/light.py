@@ -12,19 +12,23 @@ class Light:
         self.red = False
         self.time = 0
 
+    def getTotals(self):
+        state = [0,0,0]
+        state[0] = self.incomingRoads[0].getNumberOfCars() + self.incomingRoads[1].getNumberOfCars()
+        state[1] = self.incomingRoads[2].getNumberOfCars() + self.incomingRoads[3].getNumberOfCars()
+        state[2] = self.status
+        return state
+
 
     def updateCars(self):
         self.time += 1
-        if self.red and self.time < 5:
-            return
 
         for roads in self.incomingRoads:
             roads.timeStep()
-
-        if self.time >= 10:
-            self.time = 0
-            self.status = abs(self.status - 1)
         
+        if self.time < 2:
+            return
+
         if self.status == self.light_status["North-South"]:
 
             carS = self.incomingRoads[1].moveCarsFrom()
@@ -43,11 +47,8 @@ class Light:
             if carE != None:
                 self.outgoingRoads[carE.getNext()].moveCarsTo(carE)
 
-    def __str__(self):
-        a = "   " + str(self.incomingRoads[1]) + "   \n"
-        a += str(self.incomingRoads[2]) + "     " + str(self.incomingRoads[3]) + "\n"
-        a += "   " + str(self.incomingRoads[0]) + "   \n"
-        
-        return a
+    def changeLight(self):
+        self.status = abs(self.status - 1)
+        self.time = 0
 
 
