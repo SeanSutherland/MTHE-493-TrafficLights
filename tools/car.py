@@ -1,3 +1,6 @@
+import random as r
+import math
+
 class Car:
 
     direction = {
@@ -7,13 +10,82 @@ class Car:
         "W":3
     }
 
-    def __init__(self):
-        self.path = generatePath()
-        self.time = []
-        #self.location = self.path[0]
+    def __init__(self, source, sourceDirection):
+        self.source = source
+        self.path = [sourceDirection]
+        self.locations = [source]
+        self.generatePath()
+        self.time = [0,0,0,0]
 
     def generatePath(self):
-        return [2,0,3,0]
+        l = 4
+        if r.randint(0,1) == 1:
+            l+=1
+
+        while len(self.path) < l:
+            next_1, next_2 = getRandomTurn(self.locations[-1], self.path[-1], len(self.path), l)
+            self.path.append(next_1)
+            self.locations.append(next_2)
 
     def getNext(self):
-        return self.path.pop(0)
+        return self.direction[self.path.pop(0)]
+
+    def addTime(self):
+        self.time[4-len(self.path)] += 1
+
+    def getTime(self):
+        return self.time[4-len(self.path)]
+
+
+
+    def __str__(self):
+        a  = sum(self.time)
+        if a > 0:
+            return str(a)
+        return ""
+   
+def getRandomTurn(location, previousDirection, length, l):
+    if location == 0:
+        if length == l-1:
+            return [r.choice(["W", "S"]),5]
+        elif previousDirection == "S":
+            return ["E", 1]
+        elif previousDirection == "W":
+            return ["N", 3]
+        else:
+          opt = [["N",3],["E",1]]
+          return r.choice(opt)
+
+
+    elif location == 1:
+        if length == l-1:
+            return [r.choice(["E", "S"]),5]
+        elif previousDirection == "S":
+            return ["W", 0]
+        elif previousDirection == "E":
+            return ["N", 2]
+        else:
+          opt = [["N",2],["W",0]]
+          return r.choice(opt)
+
+    elif location == 2:
+        if length == l-1:
+            return [r.choice(["N", "E"]),5]
+        elif previousDirection == "N":
+            return ["W", 3]
+        elif previousDirection == "E":
+            return ["S", 1]
+        else:
+          opt = [["S",1],["W",3]]
+          return r.choice(opt)
+
+    elif location == 3:
+        if length == l-1:
+            return [r.choice(["W", "N"]),5]
+        elif previousDirection == "W":
+            return ["S", 0]
+        elif previousDirection == "N":
+            return ["E", 2]
+        else:
+          opt = [["S",0],["E",2]]
+          return r.choice(opt)
