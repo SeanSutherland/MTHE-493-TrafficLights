@@ -1,19 +1,28 @@
 import numpy as np
+from tools.state import State
 
 class Q_Agent:
     # Initializes the Q-table with zero values. If there is quantization,
     # num_bins is the number of quantization bins
-    # If there is no quantization, num_bins is the road capacity
-    def __init__(self, num_lights, num_roads, num_bins):
-        # Dims are (2^num_lights) X (num_bins ^ num_roads)
+    # If there is no quantization, num_bins is the road capacity across each intersection
+    def __init__(self, num_lights, num_bins):
+        # Dims are (2^num_lights) X (num_bins ^ num_counters)
         n_actions = 2 ** num_lights
 
         # Here, I'm not including the lights as part of the observable space
         # If later we assume there is some time cost to changing lights,
         # it would be important for the controller to know the current lights
-        n_obs = num_bins ** num_roads
+
+        # Since there are 2 counters for each light (NS and EW), the obs space size is
+        # exponential in 2 * num_lights
+        n_obs = num_bins ** (2 * num_lights)
         # Initialize Q-table
         self.table = np.zeros((n_obs, n_actions))
+
+        # Need this to calculate the state index later
+        self.num_bins = num_bins
+        # Need this to calculate reward later
+        self.max_cars = (num_bins-1) * (2 * num_lights)
 
         # HYPERPARAMETERS
         # Number of episodes
@@ -49,17 +58,34 @@ class Q_Agent:
         action = [int(i) for i in str(idx)]
         return action
 
-    # Trains table on simulation. The sim param needs to provide reset() 
-    # and update() methods
-    def trainTable(self, sim):
+    # Converts the state returned by the simulation into an index for the q-table
+    # State returned by sim is in the form: [[#NS, #EW, D_0], [#NS, #EW, D_1], ... , [#NS, #EW, D_n]]
+    def stateToIdx(self, state):
+        # Treat direction of last light as least significant digit, 
+        # #NS of first light as most-significant
+        idx = 0
+        # Significance of current digit
+        sig = 1
+        for light in state:
+            idx += light[2] * sig
+            # 2 possible values for direction, so significance of 2
+            sig *= 2
+            idx += light[1] * sig
+            # num_bins possible values for #NS and #EW
+            sig *= self.num_bins
+            idx += light[0] * sig
+            sig *= self.num_bins
+        return idx
+
+    # Trains table on simulation
+    def trainTable(self):
         # Keep track of progress
         rewards_per_episode = []
 
         for e in range(self.n_episodes):
             # Initialize episode
-            # TODO Need way to reset simulation
-            # TODO Figure out how to convert state to an index
-            curr_state = sim.reset()
+            state = State()
+            curr_state = self.stateToIdx(state.getState())
             
             # Rewards for this episode
             episode_reward = 0
@@ -70,12 +96,12 @@ class Q_Agent:
                 action = self.getAction(curr_state)
 
                 # Update simulation
-                # TODO Need an update() method for the simulation
-                # Think it would just be changing the light states to those
-                # in action and calling updateCars(), and returning new car numbers
-                next_state, reward = sim.update(action)
+                state.updateState(action)
+                curr_state = state.getState()
+                reward = self.max_cars
+                for s in curr_state:
+                    reward -= (s[0] + s[1])
                 episode_reward += reward
-                curr_state = next_state
             
             # At the end of each episode, update p_explore
             self.p_explore = max(self.min_p_explore, self.p_explore*np.exp(-self.decay_explore))
