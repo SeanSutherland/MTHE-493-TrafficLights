@@ -10,7 +10,7 @@ class Light:
         self.incomingRoads = incomingRoads
         self.outgoingRoads = outgoingRoads
         self.red = False
-        self.time = 0
+        self.time = 5
 
     def getTotals(self):
         state = [0,0,0]
@@ -26,7 +26,7 @@ class Light:
         for roads in self.incomingRoads:
             roads.timeStep()
         
-        if self.time < 2:
+        if self.time < 3:
             return
 
         if self.status == self.light_status["North-South"]:

@@ -78,10 +78,10 @@ class State:
 
     def __str__(self):
         print("*******")
-        print(traffic_lights[0])
-        print(traffic_lights[1])
-        print(traffic_lights[2])
-        print(traffic_lights[3])
+        print(self.traffic_lights[0])
+        print(self.traffic_lights[1])
+        print(self.traffic_lights[2])
+        print(self.traffic_lights[3])
 
     def getState(self):
         state = []
@@ -100,3 +100,44 @@ class State:
         self.traffic_lights[1].updateCars()
         self.traffic_lights[2].updateCars()
         self.traffic_lights[3].updateCars()
+
+    def getRoadStates(self):
+        newList = {
+        0: {
+            "N": 0,
+            "S": 0,
+            "E": 0,
+            "W": 0,
+        },
+        1:{
+            "N": 0,
+            "S": 0,
+            "E": 0,
+            "W": 0,
+        },
+        2:{
+            "N": 0,
+            "S": 0,
+            "E": 0,
+            "W": 0,
+        },
+        3:{
+            "N": 0,
+            "S": 0,
+            "E": 0,
+            "W": 0,
+        }
+    }
+        for intersection in self.roads.keys():
+            for road in self.roads[intersection].keys():
+                newList[intersection][road] = self.roads[intersection][road].getNumberOfCars()
+        return newList
+
+    def getLightStates(self):
+        newList = []
+        for intersection in self.traffic_lights:
+            if intersection.time < 3:
+                newList.append(2)
+            else:
+                newList.append(intersection.status)
+        return newList
