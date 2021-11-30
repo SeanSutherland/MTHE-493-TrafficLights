@@ -4,6 +4,7 @@ from .car import Car
 from .sink import Sink
 import time
 import random as r
+from numpy import random as p
 
 
 def generateRoads():
@@ -61,7 +62,7 @@ class State:
         self.newCars()
 
     def newCars(self):
-        numberOfCarsAdded = r.randint(0,3)
+        numberOfCarsAdded = p.poisson(1,1)[0]
         count = 0
         while count < numberOfCarsAdded:
             count += 1
