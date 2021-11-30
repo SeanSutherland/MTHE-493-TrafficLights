@@ -1,82 +1,32 @@
-from tools.road import Road
-from tools.light import Light
-from tools.car import Car
-from tools.sink import Sink
+from tools.state import State
+from tools.g import GUI
 import time
-import random as r
 
-mySink = Sink()
+state = State()
 
-roads = {
-    0: {
-        "N": Road(),
-        "S": Road(),
-        "E": Road(),
-        "W": Road(),
-    },
-    1:{
-        "N": Road(),
-        "S": Road(),
-        "E": Road(), 
-        "W": Road(), 
-    },
-    2:{
-        "N":Road(),
-        "S":Road(),
-        "E":Road(),
-        "W":Road(),
-    },
-    3:{
-        "N":Road(),
-        "S":Road(),
-        "E":Road(),
-        "W":Road(),
-    }
-}
+def controlState(state):
+    action = []
+    for light in state:
+        if light[2] == 0:
+            if light[0] < light[1]-3:
+                action.append(1)
+            else:
+                action.append(0)
+        else:   
+            if light[1] < light[0]-3:
+                action.append(0)
+            else:
+                action.append(1)
+    return action
 
-traffic_lights = [Light(
-    [roads[0]["N"],roads[0]["S"],roads[0]["E"],roads[0]["W"]],
-    [roads[3]["N"], mySink ,roads[1]["E"], mySink]
-), Light(
-    [roads[1]["N"],roads[1]["S"],roads[1]["E"],roads[1]["W"]],
-    [roads[2]["N"], mySink ,mySink, roads[0]["W"]]
-), Light(
-    [roads[2]["N"],roads[2]["S"],roads[2]["E"],roads[2]["W"]],
-    [mySink, roads[1]["S"] ,mySink, roads[3]["W"]]
-), Light(
-    [roads[3]["N"],roads[3]["S"],roads[3]["E"],roads[3]["W"]],
-    [mySink, roads[0]["S"] ,roads[2]["E"], mySink]
-)]
 
-def newCars():
-    numberOfCarsAdded = r.randint(0,5)
-    count = 0
-    while count < numberOfCarsAdded:
-        count += 1
-        light = r.randint(0,3)
-        if light == 0:
-            direction = r.choice(["E","N"])
-        elif light == 1:
-            direction = r.choice(["W","N"])
-        elif light == 2:
-            direction = r.choice(["S","W"])
-        elif light == 3:
-            direction = r.choice(["E","S"])
-        roads[light][direction].moveCarsTo(Car(0))
-
-def sim(): 
-    print("*******")
-    print(traffic_lights[0])
-    print(traffic_lights[1])
-    print(traffic_lights[2])
-    print(traffic_lights[3])
-
-newCars()
+g = GUI()
+d = 0
 while True:
-    time.sleep(1)
-    newCars()
-    traffic_lights[0].updateCars()
-    traffic_lights[1].updateCars()
-    traffic_lights[2].updateCars()
-    traffic_lights[3].updateCars()
-    sim()
+    if d > 100:
+        time.sleep(1)
+    else:
+        d+=1
+    
+    state.updateState(controlState(state.getState()))
+    g.update(state.getRoadStates(), state.getLightStates(), state.mySink.getStuff())
