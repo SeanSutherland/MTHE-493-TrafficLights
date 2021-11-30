@@ -21,8 +21,6 @@ class Q_Agent:
 
         # Need this to calculate the state index later
         self.num_bins = num_bins
-        # Need this to calculate reward later
-        self.max_cars = (num_bins-1) * (2 * num_lights)
 
         # HYPERPARAMETERS
         # Number of episodes
@@ -40,9 +38,9 @@ class Q_Agent:
         # Learning rate
         self.lr = 0.1
 
-    def updateTable(self, curr_state, action, reward, next_state):
-        self.table[curr_state, action] = (1-self.lr) * self.table[curr_state, action] + self.lr*(reward + 
-                                            self.gamma*max(self.table[next_state,:]))
+    def updateTable(self, curr_state, action, cost, next_state):
+        self.table[curr_state, action] = (1-self.lr) * self.table[curr_state, action] + self.lr*(cost + 
+                                            self.gamma*min(self.table[next_state,:]))
     
     # Gets an action, either random or learned
     def getAction(self, curr_state):
@@ -51,7 +49,7 @@ class Q_Agent:
             idx = np.random.uniform(0, self.table.shape[1])
         # Else, pick learned action
         else:
-            idx = np.argmax(self.table[curr_state,:])
+            idx = np.argmin(self.table[curr_state,:])
 
         # idx is a number whose binary rep. corresponds to light states
         idx = bin(idx)
@@ -80,15 +78,15 @@ class Q_Agent:
     # Trains table on simulation
     def trainTable(self):
         # Keep track of progress
-        rewards_per_episode = []
+        cost_per_episode = []
 
         for e in range(self.n_episodes):
             # Initialize episode
             state = State()
             curr_state = self.stateToIdx(state.getState())
             
-            # Rewards for this episode
-            episode_reward = 0
+            # Cost for this episode
+            episode_cost = 0
 
             # Iterate through simulation
             for i in range(self.max_iter):
@@ -98,11 +96,11 @@ class Q_Agent:
                 # Update simulation
                 state.updateState(action)
                 curr_state = state.getState()
-                reward = self.max_cars
+                cost = 0
                 for s in curr_state:
-                    reward -= (s[0] + s[1])
-                episode_reward += reward
+                    cost += (s[0] + s[1])
+                episode_cost += cost
             
             # At the end of each episode, update p_explore
             self.p_explore = max(self.min_p_explore, self.p_explore*np.exp(-self.decay_explore))
-            rewards_per_episode.append(episode_reward)
+            cost_per_episode.append(episode_cost)
