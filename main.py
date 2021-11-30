@@ -14,14 +14,14 @@ def controlState(state):
     for light in state:
         if light[2] == 0:
             if light[0] < light[1]-2:
-                action.append(True)
+                action.append(1)
             else:
-                action.append(False)
+                action.append(0)
         else:   
             if light[1] < light[0]-2:
-                action.append(True)
+                action.append(0)
             else:
-                action.append(False)
+                action.append(1)
     return action
 
 '''

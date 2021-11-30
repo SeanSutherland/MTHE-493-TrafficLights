@@ -1,3 +1,5 @@
+from .car import Car
+
 class Sink:
     def __init__(self):
         self.queue = []
@@ -9,7 +11,10 @@ class Sink:
         return None
 
     def __str__(self):
-        a = ""
+        totalTime = 0
         for car in self.queue:
-            a += str(car)
-        return a
+            totalTime += car.getTotalTime()
+        l = len(self.queue)
+        if l == 0:
+            return '0'
+        return str(totalTime/l) + "  Cars: " + str(l)

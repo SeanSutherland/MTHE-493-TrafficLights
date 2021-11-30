@@ -47,8 +47,10 @@ class Light:
             if carE != None:
                 self.outgoingRoads[carE.getNext()].moveCarsTo(carE)
 
-    def changeLight(self):
-        self.status = abs(self.status - 1)
-        self.time = 0
+    def changeLight(self, newState):
+        if self.status != newState:
+            self.time = 0
+        self.status = newState
+        
 
 

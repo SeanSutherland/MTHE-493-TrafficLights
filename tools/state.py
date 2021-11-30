@@ -61,11 +61,11 @@ class State:
         self.newCars()
 
     def newCars(self):
-        numberOfCarsAdded = r.randint(0,5)
+        numberOfCarsAdded = r.randint(0,3)
         count = 0
         while count < numberOfCarsAdded:
             count += 1
-            light = r.randint(0,3)
+            light = r.choice([0,0,0,0,1,2,3,3,3])
             if light == 0:
                 direction = r.choice(["E","N"])
             elif light == 1:
@@ -92,8 +92,7 @@ class State:
     def updateState(self, control):
         i = 0
         for light in control:
-            if light:
-                self.traffic_lights[i].changeLight()
+            self.traffic_lights[i].changeLight(light)
             i += 1
 
         self.newCars()
