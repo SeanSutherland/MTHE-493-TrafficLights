@@ -26,8 +26,8 @@ class Light:
         for roads in self.incomingRoads:
             roads.timeStep()
         
-        if self.time < 2:
-            return
+        #if self.time < 2:
+        #    return
 
         if self.status == self.light_status["North-South"]:
 

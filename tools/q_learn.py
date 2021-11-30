@@ -16,17 +16,17 @@ class Q_Agent:
         # Since there are 2 counters for each light (NS and EW), the obs space size is
         # exponential in 2 * num_lights
         n_obs = num_bins ** (2 * num_lights)
-        # Initialize Q-table
-        self.table = np.zeros((n_obs, n_actions))
+        # Initialize Q-table with high costs
+        self.table = np.full((n_obs, n_actions), 100)
 
         # Need this to calculate the state index later
         self.num_bins = num_bins
 
         # HYPERPARAMETERS
         # Number of episodes
-        self.n_episodes = 100
+        self.n_episodes = 10000
         # Max iterations / episode
-        self.max_iter = 100
+        self.max_iter = 500
         # Always start by exploring (prob is 1)
         self.p_explore = 1
         # Rate at which exploration rate decays
@@ -39,8 +39,9 @@ class Q_Agent:
         self.lr = 0.1
 
     def updateTable(self, curr_state, action, cost, next_state):
-        self.table[curr_state, action] = (1-self.lr) * self.table[curr_state, action] + self.lr*(cost + 
+        new_q = (1-self.lr) * self.table[curr_state, action] + self.lr*(cost + 
                                             self.gamma*min(self.table[next_state,:]))
+        self.table[curr_state, action] = new_q
     
     # Gets an action, either random or learned
     def getAction(self, curr_state):
@@ -52,9 +53,9 @@ class Q_Agent:
             idx = np.argmin(self.table[curr_state,:])
 
         # idx is a number whose binary rep. corresponds to light states
-        idx = format(idx, '04b')
-        action = [int(i) for i in idx]
-        return action
+        action = format(idx, '04b')
+        action = [int(i) for i in action]
+        return idx, action
 
     # Converts the state returned by the simulation into an index for the q-table
     # State returned by sim is in the form: [[#NS, #EW, D_0], [#NS, #EW, D_1], ... , [#NS, #EW, D_n]]
@@ -85,6 +86,15 @@ class Q_Agent:
             for road in s[0:2]:
                 bin = len(bins)
                 for b in reversed(bins):
+                    #TODO Remove this once there is a simulation limit on number of cars
+                    # For now just put into biggest bin
+                    if road > max_cars:
+                        quantized_light.append(len(bins) - 1)
+                        break
+                    #TODO Prettify this
+                    if road == 0:
+                        quantized_light.append(0)
+                        break
                     if road >= b:
                         quantized_light.append(bin)
                         break
@@ -99,6 +109,7 @@ class Q_Agent:
         cost_per_episode = []
 
         for e in range(self.n_episodes):
+            print(e)
             # Initialize episode
             state = State()
             curr_state = state.getState()
@@ -111,20 +122,30 @@ class Q_Agent:
             # Iterate through simulation
             for i in range(self.max_iter):
                 # Get action for this iteration
-                action = self.getAction(curr_state)
-                print(action)
+                action_idx, action = self.getAction(curr_state)
 
-                # Update simulation
+                # Update simulation and get next state
                 state.updateState(action)
-                curr_state = state.getState()
-                curr_state = self.quantizeState(curr_state)
-                print(curr_state)
+                next_state = state.getState()
 
                 cost = 0
-                for s in curr_state:
+                for s in next_state:
                     cost += (s[0] + s[1])
                 episode_cost += cost
+
+                # Update Q-table using quantized state and cost
+                next_state = self.quantizeState(next_state)
+                next_state = self.stateToIdx(next_state)
+                self.updateTable(curr_state, action_idx, cost, next_state)
+
+                # Update state
+                curr_state = next_state
             
             # At the end of each episode, update p_explore
             self.p_explore = max(self.min_p_explore, self.p_explore*np.exp(-self.decay_explore))
             cost_per_episode.append(episode_cost)
+
+        print(np.min(self.table, axis=0))
+        for i in range(10):
+            print((i+1)*1000," : mean cars in system: ",\
+                np.mean(cost_per_episode[1000*i:1000*(i+1)]) / 500)
