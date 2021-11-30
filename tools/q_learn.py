@@ -1,5 +1,5 @@
+from .state import State
 import numpy as np
-from tools.state import State
 
 class Q_Agent:
     # Initializes the Q-table with zero values. If there is quantization,
@@ -24,9 +24,9 @@ class Q_Agent:
 
         # HYPERPARAMETERS
         # Number of episodes
-        self.n_episodes = 10000
+        self.n_episodes = 100
         # Max iterations / episode
-        self.max_iter = 1000
+        self.max_iter = 100
         # Always start by exploring (prob is 1)
         self.p_explore = 1
         # Rate at which exploration rate decays
@@ -46,14 +46,14 @@ class Q_Agent:
     def getAction(self, curr_state):
         # With prob p_explore, pick a random action
         if np.random.uniform(0,1) < self.p_explore:
-            idx = np.random.uniform(0, self.table.shape[1])
+            idx = np.random.randint(0, self.table.shape[1])
         # Else, pick learned action
         else:
             idx = np.argmin(self.table[curr_state,:])
 
         # idx is a number whose binary rep. corresponds to light states
-        idx = bin(idx)
-        action = [int(i) for i in str(idx)]
+        idx = format(idx, '04b')
+        action = [int(i) for i in idx]
         return action
 
     # Converts the state returned by the simulation into an index for the q-table
@@ -64,16 +64,34 @@ class Q_Agent:
         idx = 0
         # Significance of current digit
         sig = 1
-        for light in state:
-            idx += light[2] * sig
-            # 2 possible values for direction, so significance of 2
-            sig *= 2
+        for light in reversed(state):
             idx += light[1] * sig
             # num_bins possible values for #NS and #EW
-            sig *= self.num_bins
+            sig = sig*self.num_bins
             idx += light[0] * sig
-            sig *= self.num_bins
+            sig = sig*self.num_bins
         return idx
+
+    # Quantizes state into bins
+    def quantizeState(self, state):
+        #TODO bake this into the road class
+        max_cars = 9
+        bin_sizes = [1, 2, 3, 4]
+        bins = [0, 3, 6, 10]
+        quantized_state = []
+        #TODO make this more generic
+        for s in state:
+            quantized_light = []
+            for road in s[0:2]:
+                bin = len(bins)
+                for b in reversed(bins):
+                    if road >= b:
+                        quantized_light.append(bin)
+                        break
+                    bin -= 1
+            quantized_state.append([*quantized_light, s[2]])
+
+        return quantized_state
 
     # Trains table on simulation
     def trainTable(self):
@@ -83,8 +101,10 @@ class Q_Agent:
         for e in range(self.n_episodes):
             # Initialize episode
             state = State()
-            curr_state = self.stateToIdx(state.getState())
-            
+            curr_state = state.getState()
+            curr_state = self.quantizeState(curr_state)
+            curr_state = self.stateToIdx(curr_state)
+
             # Cost for this episode
             episode_cost = 0
 
@@ -92,10 +112,14 @@ class Q_Agent:
             for i in range(self.max_iter):
                 # Get action for this iteration
                 action = self.getAction(curr_state)
+                print(action)
 
                 # Update simulation
                 state.updateState(action)
                 curr_state = state.getState()
+                curr_state = self.quantizeState(curr_state)
+                print(curr_state)
+
                 cost = 0
                 for s in curr_state:
                     cost += (s[0] + s[1])

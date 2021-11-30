@@ -3,6 +3,7 @@ from tools.light import Light
 from tools.car import Car
 from tools.sink import Sink
 from tools.state import State
+from tools.q_learn import Q_Agent
 import time
 import random as r
 
@@ -23,10 +24,14 @@ def controlState(state):
                 action.append(False)
     return action
 
-
+'''
 while True:
     time.sleep(1)
     state.updateState(controlState(state.getState()))
 
     # the state is a list of traffic lights for which each light has state [# of cars NS, # of cars EW, 0 if NS | 1 if EW]
     print(state.getState())
+'''
+q_agent = Q_Agent(4, 4)
+q_agent.trainTable()
+print(q_agent.table)
