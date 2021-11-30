@@ -2,8 +2,10 @@ from tools.state import State
 from tools.g import GUI
 import time
 
-state = State()
+SIMULATION = True
+SKIP_FIRST_HUNDRED_ITERATIONS = True
 
+# Basic logic controller
 def controlState(state):
     action = []
     for light in state:
@@ -19,14 +21,24 @@ def controlState(state):
                 action.append(1)
     return action
 
+if SIMULATION:
+    g = GUI()
 
-g = GUI()
+state = State()
+
 d = 0
+# Run simulation
 while True:
-    if d > 100:
+    if SKIP_FIRST_HUNDRED_ITERATIONS:
+        if d > 100:
+            time.sleep(1)
+        else:
+            d+=1
+    else: 
         time.sleep(1)
-    else:
-        d+=1
     
+    # Update state based on control choice from previous state
     state.updateState(controlState(state.getState()))
+
+    # Update visualization with new state
     g.update(state.getRoadStates(), state.getLightStates(), state.mySink.getStuff())

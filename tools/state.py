@@ -62,7 +62,11 @@ class State:
         self.newCars()
 
     def newCars(self):
+
+        # State arrivals Poisson(1) distributed
         numberOfCarsAdded = p.poisson(1,1)[0]
+
+        # Add new cars into system
         count = 0
         while count < numberOfCarsAdded:
             count += 1
@@ -76,33 +80,36 @@ class State:
             elif light == 3:
                 direction = r.choice(["E","S"])
             self.roads[light][direction].moveCarsTo(Car(light, direction))
-
-    def __str__(self):
-        print("*******")
-        print(self.traffic_lights[0])
-        print(self.traffic_lights[1])
-        print(self.traffic_lights[2])
-        print(self.traffic_lights[3])
-
+    
+    # Get current state of the traffic lights for Q - learning
     def getState(self):
         state = []
         for light in self.traffic_lights:
             state.append(light.getTotals())
         return state
 
+    # Update the state based on Q - learning control
     def updateState(self, control):
         i = 0
         for light in control:
             self.traffic_lights[i].changeLight(light)
             i += 1
 
+        # Add new cars at each timestep
         self.newCars()
-        self.traffic_lights[0].updateCars()
-        self.traffic_lights[1].updateCars()
-        self.traffic_lights[2].updateCars()
-        self.traffic_lights[3].updateCars()
 
+        # Update cars at each light
+        for light in self.traffic_lights:
+            light.updateCars()
+
+    def __str__(self):        
+        for light in self.traffic_lights:
+            print(light)
+
+
+    # Get total number of cars on each road segment (used for visualization)
     def getRoadStates(self):
+
         newList = {
         0: {
             "N": 0,
@@ -134,6 +141,7 @@ class State:
                 newList[intersection][road] = self.roads[intersection][road].getNumberOfCars()
         return newList
 
+    # Get light states (used for visualization)
     def getLightStates(self):
         newList = []
         for intersection in self.traffic_lights:

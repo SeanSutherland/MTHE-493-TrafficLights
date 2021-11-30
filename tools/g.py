@@ -31,6 +31,7 @@ class GUI():
                 }
             }
 
+        # Initialize window
         self.win = GraphWin(width = 500, height=500)
 
         
