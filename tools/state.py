@@ -60,11 +60,13 @@ class State:
         self.roads = generateRoads()
         self.traffic_lights = generateLights(self.roads, self.mySink)
         self.newCars()
+        self.lastCarsAdded = [[0,0],[0,0],[0,0],[0,0]]
 
     def newCars(self):
-
+        self.lastCarsAdded = [[0,0],[0,0],[0,0],[0,0]]
         # State arrivals Poisson(1) distributed
-        numberOfCarsAdded = p.poisson(1,1)[0]
+        lam = 1.2
+        numberOfCarsAdded = p.poisson(lam,1)[0]
 
         # Add new cars into system
         count = 0
@@ -80,6 +82,20 @@ class State:
             elif light == 3:
                 direction = r.choice(["E","S"])
             self.roads[light][direction].moveCarsTo(Car(light, direction))
+            if direction == "N" or direction == "S":
+                self.lastCarsAdded[light][0] += 1
+            else: 
+                self.lastCarsAdded[light][1] += 1
+
+    def getLastCars(self):
+        i = 0
+        for light in self.traffic_lights:
+            t = light.getCarsLeaving()
+            self.lastCarsAdded[i][0] += t[0]
+            self.lastCarsAdded[i][1] += t[1]
+            i += 1
+        return str(self.lastCarsAdded)
+
     
     # Get current state of the traffic lights for Q - learning
     def getState(self):

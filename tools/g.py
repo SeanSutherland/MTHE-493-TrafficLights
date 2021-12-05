@@ -32,11 +32,17 @@ class GUI():
             }
 
         # Initialize window
-        self.win = GraphWin(width = 500, height=500)
+        self.win = GraphWin(width = 500, height=600)
 
         
         self.text = Text(Point(250, 250), 'Cars out: 0\nAvg_wait: 0s')
         self.text.draw(self.win).setFill('black')
+        self.state = Text(Point(250, 550), 'State = [[0,0,0],[0,0,0],[0,0,0],[0,0,0]]')
+        self.state.draw(self.win).setFill('black')
+        self.noise = Text(Point(250, 525), 'Noise = [[0,0],[0,0],[0,0],[0,0]]')
+        self.noise.draw(self.win).setFill('black')
+        self.control = Text(Point(250, 500), 'Control = [0,0,0,0]')
+        self.control.draw(self.win).setFill('black')
 
         # X - right
         Line(Point(50, 105), Point(450, 105)).draw(self.win).setFill('red')
@@ -72,9 +78,13 @@ class GUI():
             a[0].draw(self.win).setFill('green')
             a[1].draw(self.win).setFill('red')
 
-    def update(self, roads, lights, sink):
+    def update(self, roads, lights, sink, state, control, newCars):
         a = [[100,400],[400,400],[400,100],[100,100]]
         self.text.setText('Cars out: ' + str(sink[0]) + '\nAvg_wait: ' + str(sink[1]) + 's')
+
+        self.state.setText('State = ' + str(state))
+        self.control.setText('Control = ' + str(control))
+        self.noise.setText('Noise = ' + newCars)
 
         for car in self.cars:
             car.move(600,0)

@@ -1,6 +1,5 @@
 class Road:
     def __init__(self):
-        self.status = 0
         self.queue = []
         self.numberOfCars = 0
 
