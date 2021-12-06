@@ -22,29 +22,31 @@ class Car:
 
     def generatePath(self):
         opts = ["N","S","E","W"]
-        removed = False
+        removed = 0
 
         if self.source % self.sq == 0:
+            removed += 1
             opts.remove("W")
-            #opts.remove(r.choice(["N","S"]))
-            if self.source < self.sq:
-                opts.remove("S")
-            elif self.source >= self.sq*(self.sq-1):
-                opts.remove("N")
-            else:
-                opts.remove(r.choice(["N","S"]))
 
         elif self.source +1% self.sq == 0:
+            removed += 1
             opts.remove("E")
-            #opts.remove(r.choice(["N","S"]))
-            if self.source < self.sq:
-                opts.remove("S")
-            elif self.source >= self.sq*(self.sq-1):
-                opts.remove("N")
-            else:
-                opts.remove(r.choice(["N","S"]))
 
+        if self.source < self.sq:
+            removed += 1
+            opts.remove("S")
+            if removed == 1:
+                removed += 1
+                opts.remove(r.choice(["E","W"]))
+        elif self.source >= self.sq*(self.sq-1):
+            removed += 1
+            opts.remove("N")
+            if removed == 1:
+                removed += 1
+                opts.remove(r.choice(["E","W"]))
         
+        if removed == 1:
+            opts.remove(r.choice(["N","S"]))
        
 
 
