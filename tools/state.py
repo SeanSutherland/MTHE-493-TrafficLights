@@ -5,96 +5,103 @@ from .sink import Sink
 import time
 import random as r
 from numpy import random as p
+import math
 
 
-def generateRoads():
-    roads = {
-        0: {
-            "N": Road(),
+def generateRoads(d):
+    roads = {}
+    for i in range(d):
+        lights = {"N": Road(),
             "S": Road(),
             "E": Road(),
             "W": Road(),
-        },
-        1:{
-            "N": Road(),
-            "S": Road(),
-            "E": Road(), 
-            "W": Road(), 
-        },
-        2:{
-            "N":Road(),
-            "S":Road(),
-            "E":Road(),
-            "W":Road(),
-        },
-        3:{
-            "N":Road(),
-            "S":Road(),
-            "E":Road(),
-            "W":Road(),
         }
-    }
+        roads[i] = lights
     return roads
 
-def generateLights(roads, mySink):
+def generateLights(roads, mySink,d):
+    traffic_lights = []
+    sq = int(math.sqrt(d))
+    for i in range(sq):
+        incoming = [roads[i]["N"],roads[i]["S"],roads[i]["E"],roads[i]["W"]]
+        if i == 0:
+            outgoing = [roads[sq]["N"],mySink,roads[i+1]["E"],mySink]
+        elif i == sq-1:
+            outgoing = [roads[i+sq]["N"], mySink ,mySink, roads[i-1]["W"]]
+        else:
+            outgoing = [roads[i+sq]["N"], mySink ,roads[i+1]["E"], roads[i-1]["W"]]
+        traffic_lights.append(Light(incoming, outgoing))
 
-    traffic_lights = [Light(
-        [roads[0]["N"],roads[0]["S"],roads[0]["E"],roads[0]["W"]],
-        [roads[3]["N"], mySink ,roads[1]["E"], mySink]
-    ), Light(
-        [roads[1]["N"],roads[1]["S"],roads[1]["E"],roads[1]["W"]],
-        [roads[2]["N"], mySink ,mySink, roads[0]["W"]]
-    ), Light(
-        [roads[2]["N"],roads[2]["S"],roads[2]["E"],roads[2]["W"]],
-        [mySink, roads[1]["S"] ,mySink, roads[3]["W"]]
-    ), Light(
-        [roads[3]["N"],roads[3]["S"],roads[3]["E"],roads[3]["W"]],
-        [mySink, roads[0]["S"] ,roads[2]["E"], mySink]
-    )]
+    for i in range(sq,d-sq):
+        incoming = [roads[i]["N"],roads[i]["S"],roads[i]["E"],roads[i]["W"]]
+        if i % sq == 0: 
+            outgoing = [roads[i+sq]["N"], roads[i-sq]["S"] ,roads[i+1]["E"], mySink]
+        elif i + 1 % sq == 0:
+            outgoing = [roads[i+sq]["N"], roads[i-sq]["S"] ,mySink, roads[i-1]["W"]]
+        else:
+            outgoing = [roads[i+sq]["N"], roads[i-sq]["S"] ,roads[i+1]["E"], roads[i-1]["W"]]
+        traffic_lights.append(Light(incoming, outgoing))
+
+    for i in range(d-sq, d):
+        incoming = [roads[i]["N"],roads[i]["S"],roads[i]["E"],roads[i]["W"]]
+        if i == d-sq:
+            outgoing = [mySink,roads[i-sq]["E"],roads[i+1]["E"],mySink]
+        elif i == d-1:
+            outgoing = [mySink,roads[i-sq]["E"],mySink,roads[i-1]["W"]]
+        else:
+            outgoing = [mySink, roads[i-sq]["E"] ,roads[i+1]["E"], roads[i-1]["W"]]
+        traffic_lights.append(Light(incoming, outgoing))
+
     return traffic_lights
 
 
 class State:
-    def __init__(self):
+    def __init__(self,d):
         self.mySink = Sink()
-        self.roads = generateRoads()
-        self.traffic_lights = generateLights(self.roads, self.mySink)
+        self.dimension = d
+        self.sq = int(math.sqrt(d))
+        self.roads = generateRoads(d)
+        self.traffic_lights = generateLights(self.roads, self.mySink,d)
         self.newCars()
         self.lastCarsAdded = [[0,0],[0,0],[0,0],[0,0]]
+
 
     def newCars(self):
         self.lastCarsAdded = [[0,0],[0,0],[0,0],[0,0]]
         # State arrivals Poisson(1) distributed
-        lam = 1.2
+        lam = 0.3
         numberOfCarsAdded = p.poisson(lam,1)[0]
 
-        # Add new cars into system
-        count = 0
-        while count < numberOfCarsAdded:
-            count += 1
-            light = r.choice([0,0,0,0,1,2,3,3,3])
-            if light == 0:
-                direction = r.choice(["E","N"])
-            elif light == 1:
-                direction = r.choice(["W","N"])
-            elif light == 2:
-                direction = r.choice(["S","W"])
-            elif light == 3:
-                direction = r.choice(["E","S"])
-            self.roads[light][direction].moveCarsTo(Car(light, direction))
-            if direction == "N" or direction == "S":
-                self.lastCarsAdded[light][0] += 1
-            else: 
-                self.lastCarsAdded[light][1] += 1
+        
+        for i in range(self.dimension):
+            numberOfCarsAdded = p.poisson(lam,1)[0]
+            count = 0
+            while count < numberOfCarsAdded:
+                direction = "0"
+                if i < self.sq:
+                    if i == 0:
+                        direction = r.choice(["E","N"])
+                    elif i == self.sq-1:
+                        direction = r.choice(["W","N"])
+                    else:
+                        direction = "N"
+                elif i >= self.dimension - self.sq:
+                    if i == self.dimension - self.sq:
+                        direction = r.choice(["E","S"])
+                    elif i == self.dimension-1:
+                        direction = r.choice(["W","S"])
+                    else:
+                        direction = "S"
+                elif i % self.sq == 0:
+                    direction = "E"
+                elif i +1% self.sq == 0:
+                    direction = "W"
 
-    def getLastCars(self):
-        i = 0
-        for light in self.traffic_lights:
-            t = light.getCarsLeaving()
-            self.lastCarsAdded[i][0] += t[0]
-            self.lastCarsAdded[i][1] += t[1]
-            i += 1
-        return str(self.lastCarsAdded)
+                if direction != "0":
+                    self.roads[i][direction].moveCarsTo(Car(i, direction,self.dimension))
+                    count += 1
+                else: 
+                    break
 
     
     # Get current state of the traffic lights for Q - learning
@@ -121,48 +128,3 @@ class State:
     def __str__(self):        
         for light in self.traffic_lights:
             print(light)
-
-
-    # Get total number of cars on each road segment (used for visualization)
-    def getRoadStates(self):
-
-        newList = {
-        0: {
-            "N": 0,
-            "S": 0,
-            "E": 0,
-            "W": 0,
-        },
-        1:{
-            "N": 0,
-            "S": 0,
-            "E": 0,
-            "W": 0,
-        },
-        2:{
-            "N": 0,
-            "S": 0,
-            "E": 0,
-            "W": 0,
-        },
-        3:{
-            "N": 0,
-            "S": 0,
-            "E": 0,
-            "W": 0,
-        }
-    }
-        for intersection in self.roads.keys():
-            for road in self.roads[intersection].keys():
-                newList[intersection][road] = self.roads[intersection][road].getNumberOfCars()
-        return newList
-
-    # Get light states (used for visualization)
-    def getLightStates(self):
-        newList = []
-        for intersection in self.traffic_lights:
-            if intersection.time < 3:
-                newList.append(2)
-            else:
-                newList.append(intersection.status)
-        return newList
