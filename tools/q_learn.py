@@ -1,5 +1,6 @@
 from .state import State
 import numpy as np
+import matplotlib.pyplot as plt
 
 class Q_Agent:
     # Initializes the Q-table with zero values. If there is quantization,
@@ -16,17 +17,17 @@ class Q_Agent:
         # Since there are 2 counters for each light (NS and EW), the obs space size is
         # exponential in 2 * num_lights
         n_obs = num_bins ** (2 * num_lights)
-        # Initialize Q-table with high costs
-        self.table = np.full((n_obs, n_actions), 100)
+        # Initialize Q-table with zeros
+        self.table = np.full((n_obs, n_actions),100)
 
         # Need this to calculate the state index later
         self.num_bins = num_bins
 
         # HYPERPARAMETERS
         # Number of episodes
-        self.n_episodes = 10000
+        self.n_episodes = 5000
         # Max iterations / episode
-        self.max_iter = 500
+        self.max_iter = 1000
         # Always start by exploring (prob is 1)
         self.p_explore = 1
         # Rate at which exploration rate decays
@@ -35,12 +36,18 @@ class Q_Agent:
         self.min_p_explore = 0.01
         # Discount factor
         self.gamma = 0.99
-        # Learning rate
-        self.lr = 0.1
+        # Learning rate (this is on a per state-action pair basis)
+        # Create array of each time state (x,u) is visited
+        self.lr = np.full((n_obs, n_actions),1)
 
+    # Update table and learning rate
     def updateTable(self, curr_state, action, cost, next_state):
-        new_q = (1-self.lr) * self.table[curr_state, action] + self.lr*(cost + 
+        # Learning rate is inversely dependent on 
+        # number of times this state-action pair has been seen
+        rate = 1 / self.lr[curr_state, action]
+        new_q = (1-rate) * self.table[curr_state, action] + rate*(cost + 
                                             self.gamma*min(self.table[next_state,:]))
+        self.lr[curr_state, action] += 1
         self.table[curr_state, action] = new_q
     
     # Gets an action, either random or learned
@@ -107,15 +114,14 @@ class Q_Agent:
     def trainTable(self):
         # Keep track of progress
         cost_per_episode = []
-
+        # Initialize simulation
+        state = State()
+        curr_state = state.getState()
+        curr_state = self.quantizeState(curr_state)
+        curr_state = self.stateToIdx(curr_state)
+        # Split into episodes to get idea of progress
         for e in range(self.n_episodes):
             print(e)
-            # Initialize episode
-            state = State()
-            curr_state = state.getState()
-            curr_state = self.quantizeState(curr_state)
-            curr_state = self.stateToIdx(curr_state)
-
             # Cost for this episode
             episode_cost = 0
 
@@ -146,6 +152,20 @@ class Q_Agent:
             cost_per_episode.append(episode_cost)
 
         print(np.min(self.table, axis=0))
-        for i in range(10):
-            print((i+1)*1000," : mean cars in system: ",\
-                np.mean(cost_per_episode[1000*i:1000*(i+1)]) / 500)
+        # Granularity of reporting
+        x = []
+        y = []
+        g = 100
+        for i in range(int(self.n_episodes / g)):
+            print((i+1)*g," : mean cars in system: ",\
+                np.mean(cost_per_episode[g*i:g*(i+1)]) / self.max_iter)
+            x.append((i+1)*g*self.max_iter)
+            y.append(np.mean(cost_per_episode[g*i:g*(i+1)]) / self.max_iter)
+        
+        fig, ax = plt.subplots()
+        plt.ylabel('Mean cars in system')
+        plt.xlabel('Number of iterations')
+        plt.title('Q-Agent Development')
+        ax.plot(x, y)
+        plt.show()
+        plt.savefig('q_agent.png')
