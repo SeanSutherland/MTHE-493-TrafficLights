@@ -9,6 +9,15 @@ class Sink:
         if newCar is not None:
             self.queue.append(newCar)
         return None
+        
+    def getStuff(self):
+        totalTime = 0
+        for car in self.queue:
+            totalTime += car.getTotalTime()
+        l = len(self.queue)
+        if l == 0:
+            return [0,0]
+        return [l, int(totalTime/l)]
 
     def __str__(self):
         totalTime = 0

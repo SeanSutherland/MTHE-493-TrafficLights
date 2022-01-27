@@ -10,22 +10,49 @@ class Car:
         "W":3
     }
 
-    def __init__(self, source, sourceDirection):
+    def __init__(self, source, sourceDirection, d):
         self.source = source
+        self.dimension = d
+        self.sq = int(math.sqrt(d))
         self.path = [sourceDirection]
         self.locations = [source]
         self.generatePath()
-        #print(self.locations)
-        #print(self.path)
-        self.time = [0,0,0,0,0]
+        self.time = {}
         self.path.pop(0)
-        self.fullPath = self.path.copy()
 
     def generatePath(self):
-        l = r.choice([3,3,3,4,4,4,5])
+        opts = ["N","S","E","W"]
+        removed = 0
 
-        while len(self.path) < l:
-            next_1, next_2 = getRandomTurn(self.locations[-1], self.path[-1], len(self.path), l)
+        if self.source % self.sq == 0:
+            removed += 1
+            opts.remove("W")
+
+        elif self.source +1% self.sq == 0:
+            removed += 1
+            opts.remove("E")
+
+        if self.source < self.sq:
+            removed += 1
+            opts.remove("S")
+            if removed == 1:
+                removed += 1
+                opts.remove(r.choice(["E","W"]))
+        elif self.source >= self.sq*(self.sq-1):
+            removed += 1
+            opts.remove("N")
+            if removed == 1:
+                removed += 1
+                opts.remove(r.choice(["E","W"]))
+        
+        if removed == 1:
+            opts.remove(r.choice(["N","S"]))
+       
+
+
+        next_2 = 0
+        while next_2 != self.dimension:
+            next_1, next_2 = getRandomTurn(self.locations[-1], opts, self.dimension, self.sq)
             self.path.append(next_1)
             self.locations.append(next_2)
 
@@ -34,12 +61,14 @@ class Car:
             return self.direction[self.path.pop(0)]
         except:
             print(self.path)
-            print(self.fullPath)
             print(self.locations)
             return
 
     def addTime(self):
-        self.time[4-len(self.path)] += 1
+        try:
+            self.time[4-len(self.path)] += 1
+        except: 
+            self.time[4-len(self.path)] = 1
 
     def getTime(self):
         return self.time[4-len(self.path)]
@@ -47,56 +76,29 @@ class Car:
     def getTotalTime(self):
         return sum(self.time)
 
-
-
     def __str__(self):
         a  = sum(self.time)
         if a > 0:
             return str(a)
         return ""
-   
-def getRandomTurn(location, previousDirection, length, l):
-    if location == 0:
-        if length == l-1:
-            return [r.choice(["W", "S"]),5]
-        elif previousDirection == "S":
-            return ["E", 1]
-        elif previousDirection == "W":
-            return ["N", 3]
-        else:
-          opt = [["N",3],["E",1]]
-          return r.choice(opt)
 
+def getRandomTurn(location, opts, d, sq):
 
-    elif location == 1:
-        if length == l-1:
-            return [r.choice(["E", "S"]),5]
-        elif previousDirection == "S":
-            return ["W", 0]
-        elif previousDirection == "E":
-            return ["N", 2]
-        else:
-          opt = [["N",2],["W",0]]
-          return r.choice(opt)
+    direction = r.choice(opts)
+    nextLocal = d
 
-    elif location == 2:
-        if length == l-1:
-            return [r.choice(["N", "E"]),5]
-        elif previousDirection == "N":
-            return ["W", 3]
-        elif previousDirection == "E":
-            return ["S", 1]
-        else:
-          opt = [["S",1],["W",3]]
-          return r.choice(opt)
+    if direction == "N":
+        nextLocal = location + sq
+    elif direction == "S":
+        nextLocal = location - sq
+    elif direction == "E":
+        if location + 1 % sq != 0:
+            nextLocal = location +1
+    elif direction == "W":
+        if location % sq != 0:
+            nextLocal = location -1
 
-    elif location == 3:
-        if length == l-1:
-            return [r.choice(["W", "N"]),5]
-        elif previousDirection == "W":
-            return ["S", 0]
-        elif previousDirection == "N":
-            return ["E", 2]
-        else:
-          opt = [["S",0],["E",2]]
-          return r.choice(opt)
+    if nextLocal >= d or nextLocal < 0:
+        nextLocal = d
+
+    return[direction, nextLocal]
