@@ -10,6 +10,8 @@ class Q_Agent:
         # Dims are (2^num_lights) X (num_bins ^ num_counters)
         n_actions = 2 ** num_lights
 
+        self.num_lights = num_lights
+
         # Here, I'm not including the lights as part of the observable space
         # If later we assume there is some time cost to changing lights,
         # it would be important for the controller to know the current lights
@@ -115,7 +117,7 @@ class Q_Agent:
         # Keep track of progress
         cost_per_episode = []
         # Initialize simulation
-        state = State()
+        state = State(self.num_lights)
         curr_state = state.getState()
         curr_state = self.quantizeState(curr_state)
         curr_state = self.stateToIdx(curr_state)
@@ -169,3 +171,6 @@ class Q_Agent:
         ax.plot(x, y)
         plt.show()
         plt.savefig('q_agent.png')
+
+        # Save Q table to .npy file
+        np.save("2x2.npy", self.table)
