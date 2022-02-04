@@ -128,3 +128,55 @@ class State:
     def __str__(self):        
         for light in self.traffic_lights:
             print(light)
+    
+    def getLastCars(self):
+        i = 0
+        for light in self.traffic_lights:
+            t = light.getCarsLeaving()
+            self.lastCarsAdded[i][0] += t[0]
+            self.lastCarsAdded[i][1] += t[1]
+            i += 1
+        return str(self.lastCarsAdded)
+    
+    def getRoadStates(self):
+
+        newList = {
+        0: {
+            "N": 0,
+            "S": 0,
+            "E": 0,
+            "W": 0,
+        },
+        1:{
+            "N": 0,
+            "S": 0,
+            "E": 0,
+            "W": 0,
+        },
+        2:{
+            "N": 0,
+            "S": 0,
+            "E": 0,
+            "W": 0,
+        },
+        3:{
+            "N": 0,
+            "S": 0,
+            "E": 0,
+            "W": 0,
+        }
+    }
+        for intersection in self.roads.keys():
+            for road in self.roads[intersection].keys():
+                newList[intersection][road] = self.roads[intersection][road].getNumberOfCars()
+        return newList
+    
+    def getLightStates(self):
+        newList = []
+        for intersection in self.traffic_lights:
+            if intersection.time < 3:
+                newList.append(2)
+            else:
+                newList.append(intersection.status)
+        return newList
+

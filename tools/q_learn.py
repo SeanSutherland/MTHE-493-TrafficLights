@@ -27,7 +27,7 @@ class Q_Agent:
 
         # HYPERPARAMETERS
         # Number of episodes
-        self.n_episodes = 10
+        self.n_episodes = 5000
         # Max iterations / episode
         self.max_iter = 1000
         # Always start by exploring (prob is 1)

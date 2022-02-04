@@ -59,6 +59,9 @@ class Light:
         if self.status != newState:
             self.time = 0
         self.status = newState
+    
+    def getCarsLeaving(self):
+        return self.carsLeaving
         
 
 

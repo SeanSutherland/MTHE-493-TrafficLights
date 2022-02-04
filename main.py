@@ -6,17 +6,19 @@ import time
 import math
 
 
-SKIP_FIRST_ITERATIONS = 100
+SKIP_FIRST_ITERATIONS = 0
 DIMS = 4
 SIMULATION = True
+# q_agent = Q_Agent(4,4)
+# q_agent.trainTable()
 
 if SIMULATION:
     g = GUI()
 
-state = State()
-controller = Controller()
+state = State(DIMS)
+controller = Controller(4,4)
 d = 0
-# Run simulation
+#Run simulation
 while True:
     if d >= SKIP_FIRST_ITERATIONS:
         time.sleep(1)
