@@ -27,7 +27,7 @@ class Q_Agent:
 
         # HYPERPARAMETERS
         # Number of episodes
-        self.n_episodes = 5000
+        self.n_episodes = 10
         # Max iterations / episode
         self.max_iter = 1000
         # Always start by exploring (prob is 1)
@@ -170,7 +170,7 @@ class Q_Agent:
         plt.title('Q-Agent Development')
         ax.plot(x, y)
         plt.show()
-        plt.savefig('q_agent.png')
-
+        #plt.savefig('q_agent.png')
+        print("hi")
         # Save Q table to .npy file
         np.save("2x2.npy", self.table)
