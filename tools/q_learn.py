@@ -19,28 +19,24 @@ class Q_Agent:
         # Since there are 2 counters for each light (NS and EW), the obs space size is
         # exponential in 2 * num_lights
         n_obs = num_bins ** (2 * num_lights)
-        # Initialize Q-table with zeros
-        self.table = np.full((n_obs, n_actions),100)
+        # Initialize Q-table with high cost
+        self.table = np.full((n_obs, n_actions),100, dtype=np.uint8)
 
         # Need this to calculate the state index later
         self.num_bins = num_bins
 
         # HYPERPARAMETERS
         # Number of episodes
-        self.n_episodes = 5000
+        self.n_episodes = 4000
         # Max iterations / episode
-        self.max_iter = 1000
-        # Always start by exploring (prob is 1)
-        self.p_explore = 1
-        # Rate at which exploration rate decays
-        self.decay_explore = 0.001
-        # Min explore prob
-        self.min_p_explore = 0.01
+        self.max_iter = 2000
+        # Chance of choosing a random action
+        self.p_explore = 0.5
         # Discount factor
         self.gamma = 0.99
         # Learning rate (this is on a per state-action pair basis)
         # Create array of each time state (x,u) is visited
-        self.lr = np.full((n_obs, n_actions),1)
+        self.lr = np.full((n_obs, n_actions),1, dtype=np.uint32)
 
     # Update table and learning rate
     def updateTable(self, curr_state, action, cost, next_state):
@@ -67,9 +63,9 @@ class Q_Agent:
         return idx, action
 
     # Converts the state returned by the simulation into an index for the q-table
-    # State returned by sim is in the form: [[#NS, #EW, D_0], [#NS, #EW, D_1], ... , [#NS, #EW, D_n]]
+    # State returned by sim is in the form: [[#NS, #EW], [#NS, #EW], ... , [#NS, #EW]]
     def stateToIdx(self, state):
-        # Treat direction of last light as least significant digit, 
+        # Treat #EW of last light as leaset significant digit, 
         # #NS of first light as most-significant
         idx = 0
         # Significance of current digit
@@ -85,9 +81,7 @@ class Q_Agent:
     # Quantizes state into bins
     def quantizeState(self, state):
         #TODO bake this into the road class
-        max_cars = 9
-        bin_sizes = [1, 2, 3, 4]
-        bins = [0, 3, 6, 10]
+        bins = [0, 2, 4, 8]
         quantized_state = []
         #TODO make this more generic
         for s in state:
@@ -95,17 +89,8 @@ class Q_Agent:
             for road in s[0:2]:
                 bin = len(bins)
                 for b in reversed(bins):
-                    #TODO Remove this once there is a simulation limit on number of cars
-                    # For now just put into biggest bin
-                    if road > max_cars:
-                        quantized_light.append(len(bins) - 1)
-                        break
-                    #TODO Prettify this
-                    if road == 0:
-                        quantized_light.append(0)
-                        break
                     if road >= b:
-                        quantized_light.append(bin)
+                        quantized_light.append(bin - 1)
                         break
                     bin -= 1
             quantized_state.append([*quantized_light, s[2]])
@@ -150,7 +135,6 @@ class Q_Agent:
                 curr_state = next_state
             
             # At the end of each episode, update p_explore
-            self.p_explore = max(self.min_p_explore, self.p_explore*np.exp(-self.decay_explore))
             cost_per_episode.append(episode_cost)
 
         print(np.min(self.table, axis=0))
@@ -172,5 +156,7 @@ class Q_Agent:
         plt.show()
         plt.savefig('q_agent.png')
 
-        # Save Q table to .npy file
-        np.save("2x2.npy", self.table)
+        # Save optimal policy to .npy file
+        policy = np.argmin(self.table, axis=1)
+        print(policy)
+        np.save("policy.npy", policy)

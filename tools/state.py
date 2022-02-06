@@ -118,12 +118,13 @@ class State:
             self.traffic_lights[i].changeLight(light)
             i += 1
 
-        # Add new cars at each timestep
-        self.newCars()
+        for j in range(2):
+            # Add new cars at each timestep
+            self.newCars()
 
-        # Update cars at each light
-        for light in self.traffic_lights:
-            light.updateCars()
+            # Update cars at each light
+            for light in self.traffic_lights:
+                light.updateCars()
 
     def __str__(self):        
         for light in self.traffic_lights:

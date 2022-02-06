@@ -3,6 +3,7 @@ from tools.q_learn import Q_Agent
 from tools.g import GUI
 import time
 import math
+import numpy as np
 
 SKIP_FIRST_ITERATIONS = 0
 DIMS = 25
@@ -48,6 +49,10 @@ while True:
     print(state.getState())
 '''
 
+
 q_agent = Q_Agent(4, 4)
 q_agent.trainTable()
 print(q_agent.table)
+
+policy = np.load('2x2.npy')
+np.savetxt('2x2.csv', policy, fmt='%2d')
