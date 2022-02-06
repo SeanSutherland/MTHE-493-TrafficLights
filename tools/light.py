@@ -25,8 +25,6 @@ class Light:
 
     def updateCars(self):
         self.time += 1
-        
-        self.carsLeaving = [0,0]
 
         for roads in self.incomingRoads:
             roads.timeStep()
@@ -40,13 +38,9 @@ class Light:
             carN = self.incomingRoads[0].moveCarsFrom()
             if carS != None:
                 n = self.outgoingRoads[carS.getNext()]
-                if type(n) == type(self.sink):
-                    self.carsLeaving[0] -= 1
                 n.moveCarsTo(carS)
             if carN != None:
                 n = self.outgoingRoads[carN.getNext()]
-                if type(n) == type(self.sink):
-                    self.carsLeaving[0] -= 1
                 n.moveCarsTo(carN)
 
         elif self.status == self.light_status["East-West"]:
@@ -55,17 +49,11 @@ class Light:
             carE = self.incomingRoads[2].moveCarsFrom()
             if carW != None:
                 n = self.outgoingRoads[carW.getNext()]
-                if type(n) == type(self.sink):
-                    self.carsLeaving[1] -= 1
                 n.moveCarsTo(carW)
             if carE != None:
                 n = self.outgoingRoads[carE.getNext()]
-                if type(n) == type(self.sink):
-                    self.carsLeaving[1] -= 1
                 n.moveCarsTo(carE)
 
-    def getCarsLeaving(self):
-        return self.carsLeaving
 
     def changeLight(self, newState):
         if self.status != newState:
