@@ -5,10 +5,12 @@ import time
 import math
 import numpy as np
 
-SKIP_FIRST_ITERATIONS = 0
-DIMS = 25
+SKIP_FIRST_ITERATIONS = 1000
+DIMS = 1
 
 # Basic logic controller
+
+
 def controlState(state):
     action = []
     for light in state:
@@ -17,7 +19,7 @@ def controlState(state):
                 action.append(1)
             else:
                 action.append(0)
-        else:   
+        else:
             if light[1] < light[0]-3:
                 action.append(0)
             else:
@@ -33,14 +35,14 @@ while True:
     if d >= SKIP_FIRST_ITERATIONS:
         time.sleep(1)
     else:
-        d+=1
-    
+        d += 1
+
     # Update state based on control choice from previous state
     control = controlState(state.getState())
     state.updateState(control)
     s = state.getState()
-    for i in range(int(math.sqrt(DIMS)-1),-1,-1):
-        for j in range(int(math.sqrt(DIMS)-1),-1,-1):
+    for i in range(int(math.sqrt(DIMS)-1), -1, -1):
+        for j in range(int(math.sqrt(DIMS)-1), -1, -1):
             print(s[int(i*math.sqrt(DIMS) + j)], end="  ")
         print(" ")
     print("\n\n")

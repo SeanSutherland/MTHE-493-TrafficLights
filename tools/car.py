@@ -1,13 +1,14 @@
 import random as r
 import math
 
+
 class Car:
 
     direction = {
-        "N":0,
-        "S":1,
-        "E":2,
-        "W":3
+        "N": 0,
+        "S": 1,
+        "E": 2,
+        "W": 3
     }
 
     def __init__(self, source, sourceDirection, d):
@@ -21,14 +22,14 @@ class Car:
         self.path.pop(0)
 
     def generatePath(self):
-        opts = ["N","S","E","W"]
+        opts = ["N", "S", "E", "E", "E", "E", "W", "W", "W", "W"]
         removed = 0
 
         if self.source % self.sq == 0:
             removed += 1
             opts.remove("W")
 
-        elif self.source +1% self.sq == 0:
+        elif self.source + 1 % self.sq == 0:
             removed += 1
             opts.remove("E")
 
@@ -37,22 +38,21 @@ class Car:
             opts.remove("S")
             if removed == 1:
                 removed += 1
-                opts.remove(r.choice(["E","W"]))
+                opts.remove(r.choice(["E", "W"]))
         elif self.source >= self.sq*(self.sq-1):
             removed += 1
             opts.remove("N")
             if removed == 1:
                 removed += 1
-                opts.remove(r.choice(["E","W"]))
-        
-        if removed == 1:
-            opts.remove(r.choice(["N","S"]))
-       
+                opts.remove(r.choice(["E", "W"]))
 
+        if removed == 1:
+            opts.remove(r.choice(["N", "S"]))
 
         next_2 = 0
         while next_2 != self.dimension:
-            next_1, next_2 = getRandomTurn(self.locations[-1], opts, self.dimension, self.sq)
+            next_1, next_2 = getRandomTurn(
+                self.locations[-1], opts, self.dimension, self.sq)
             self.path.append(next_1)
             self.locations.append(next_2)
 
@@ -67,7 +67,7 @@ class Car:
     def addTime(self):
         try:
             self.time[4-len(self.path)] += 1
-        except: 
+        except:
             self.time[4-len(self.path)] = 1
 
     def getTime(self):
@@ -77,10 +77,11 @@ class Car:
         return sum(self.time)
 
     def __str__(self):
-        a  = sum(self.time)
+        a = sum(self.time)
         if a > 0:
             return str(a)
         return ""
+
 
 def getRandomTurn(location, opts, d, sq):
 
@@ -93,10 +94,10 @@ def getRandomTurn(location, opts, d, sq):
         nextLocal = location - sq
     elif direction == "E":
         if location + 1 % sq != 0:
-            nextLocal = location +1
+            nextLocal = location + 1
     elif direction == "W":
         if location % sq != 0:
-            nextLocal = location -1
+            nextLocal = location - 1
 
     if nextLocal >= d or nextLocal < 0:
         nextLocal = d
