@@ -1,16 +1,21 @@
 from .state import State
 import numpy as np
 import matplotlib.pyplot as plt
+import math
 
 class Q_Agent:
     # Initializes the Q-table with zero values. If there is quantization,
     # num_bins is the number of quantization bins
     # If there is no quantization, num_bins is the road capacity across each intersection
-    def __init__(self, num_lights, num_bins):
+    def __init__(self, num_lights, num_bins, num_agents=1, global_state=True):
+        # If num_agents > 1, decentralized case. Assume agents uniformly distributed around state space
+        # If global_state is False, then use local states for Q agents
         # Dims are (2^num_lights) X (num_bins ^ num_counters)
-        n_actions = 2 ** num_lights
+        n_actions = 2 ** (num_lights // num_agents)
 
         self.num_lights = num_lights
+        self.global_state = global_state
+        self.num_agents = num_agents
 
         # Here, I'm not including the lights as part of the observable space
         # If later we assume there is some time cost to changing lights,
@@ -18,9 +23,14 @@ class Q_Agent:
 
         # Since there are 2 counters for each light (NS and EW), the obs space size is
         # exponential in 2 * num_lights
-        n_obs = num_bins ** (2 * num_lights)
+        if global_state:
+            n_obs = num_bins ** (2 * num_lights)
+        # If local state, shrink Q table accordingly
+        else:
+            n_obs = num_bins ** (2 * num_lights // num_agents)
+
         # Initialize Q-table with high cost
-        self.table = np.full((n_obs, n_actions),100, dtype=np.uint8)
+        self.table = np.full((num_agents,n_obs,n_actions), 1000, dtype=np.uint16)
 
         # Need this to calculate the state index later
         self.num_bins = num_bins
@@ -29,33 +39,33 @@ class Q_Agent:
         # Number of episodes
         self.n_episodes = 4000
         # Max iterations / episode
-        self.max_iter = 2000
+        self.max_iter = 1000
         # Chance of choosing a random action
         self.p_explore = 0.5
         # Discount factor
         self.gamma = 0.99
         # Learning rate (this is on a per state-action pair basis)
         # Create array of each time state (x,u) is visited
-        self.lr = np.full((n_obs, n_actions),1, dtype=np.uint32)
+        self.lr = np.full((num_agents,n_obs,n_actions), 1, dtype=np.uint32)
 
     # Update table and learning rate
-    def updateTable(self, curr_state, action, cost, next_state):
+    def updateTable(self, agent, curr_state, action, cost, next_state):
         # Learning rate is inversely dependent on 
         # number of times this state-action pair has been seen
-        rate = 1 / self.lr[curr_state, action]
-        new_q = (1-rate) * self.table[curr_state, action] + rate*(cost + 
-                                            self.gamma*min(self.table[next_state,:]))
-        self.lr[curr_state, action] += 1
-        self.table[curr_state, action] = new_q
+        rate = 1 / self.lr[agent,curr_state,action]
+        new_q = (1-rate) * self.table[agent,curr_state,action] + rate*(cost + 
+                                            self.gamma*min(self.table[agent,next_state,:]))
+        self.lr[agent,curr_state,action] += 1
+        self.table[agent,curr_state,action] = new_q
     
     # Gets an action, either random or learned
-    def getAction(self, curr_state):
+    def getAction(self, agent, curr_state):
         # With prob p_explore, pick a random action
         if np.random.uniform(0,1) < self.p_explore:
-            idx = np.random.randint(0, self.table.shape[1])
+            idx = np.random.randint(0, self.table.shape[2])
         # Else, pick learned action
         else:
-            idx = np.argmin(self.table[curr_state,:])
+            idx = np.argmin(self.table[agent,curr_state,:])
 
         # idx is a number whose binary rep. corresponds to light states
         action = format(idx, '04b')
@@ -65,7 +75,7 @@ class Q_Agent:
     # Converts the state returned by the simulation into an index for the q-table
     # State returned by sim is in the form: [[#NS, #EW], [#NS, #EW], ... , [#NS, #EW]]
     def stateToIdx(self, state):
-        # Treat #EW of last light as leaset significant digit, 
+        # Treat #EW of last light as least significant digit, 
         # #NS of first light as most-significant
         idx = 0
         # Significance of current digit
@@ -80,20 +90,18 @@ class Q_Agent:
 
     # Quantizes state into bins
     def quantizeState(self, state):
-        #TODO bake this into the road class
-        bins = [0, 2, 4, 8]
+        #Take bins exponentially increasing
+        bins = [2**i for i in range(self.num_bins - 1)]
+        bins.insert(0, 0)
         quantized_state = []
-        #TODO make this more generic
         for s in state:
             quantized_light = []
             for road in s[0:2]:
-                bin = len(bins)
                 for b in reversed(bins):
                     if road >= b:
-                        quantized_light.append(bin - 1)
+                        quantized_light.append(bins.index(b))
                         break
-                    bin -= 1
-            quantized_state.append([*quantized_light, s[2]])
+            quantized_state.append(quantized_light)
 
         return quantized_state
 
@@ -103,9 +111,31 @@ class Q_Agent:
         cost_per_episode = []
         # Initialize simulation
         state = State(self.num_lights)
-        curr_state = state.getState()
-        curr_state = self.quantizeState(curr_state)
-        curr_state = self.stateToIdx(curr_state)
+        # List of states for each Q agent
+        agent_states = []
+
+        # Length of square
+        length = int(math.sqrt(self.num_lights))
+        # Assign lights to different agents
+        nrows = length // self.num_agents
+        ncols = length // self.num_agents
+        agent_lights = (np.arange(0, self.num_lights).reshape(length, length)
+                    .reshape(length // nrows, nrows, -1, ncols)
+                    .swapaxes(1, 2)
+                    .reshape(-1, nrows, ncols))
+
+        for agent in range(self.num_agents):
+            # Check if global state
+            if self.global_state:
+                curr_state = state.getState()
+            else:
+                # Local state, only assign curr_state to subset of whole state
+                curr_state = [ state.getSpecificState(index) for index in agent_lights[agent] ]
+
+            curr_state = self.quantizeState(curr_state)
+            curr_state = self.stateToIdx(curr_state)
+            agent_states.append(curr_state)
+
         # Split into episodes to get idea of progress
         for e in range(self.n_episodes):
             print(e)
@@ -114,30 +144,45 @@ class Q_Agent:
 
             # Iterate through simulation
             for i in range(self.max_iter):
-                # Get action for this iteration
-                action_idx, action = self.getAction(curr_state)
+                # Start by getting actions for each agent
+                agent_actions = []
+                for agent in range(self.num_agents):
+                    # Get action for this agent
+                    action_idx, action = self.getAction(agent, agent_states[agent])
+                    agent_actions.append(action_idx)
+                    # Updates lights according to this agent's action
+                    state.updateControl(action, agent_lights[agent].flatten())
 
-                # Update simulation and get next state
-                state.updateState(action)
-                next_state = state.getState()
+                # Update simulation (3 steps) according to new lights
+                state.updateState(3)
 
-                cost = 0
-                for s in next_state:
-                    cost += (s[0] + s[1])
-                episode_cost += cost
+                # Get next state for all agents
+                for agent in range(self.num_agents):
+                    if self.global_state:
+                        next_state = state.getState()
+                    else:
+                        # Local state, only assign next_state to subset of whole state
+                        next_state = [ state.getSpecificState(index) for index in agent_lights[agent] ]
 
-                # Update Q-table using quantized state and cost
-                next_state = self.quantizeState(next_state)
-                next_state = self.stateToIdx(next_state)
-                self.updateTable(curr_state, action_idx, cost, next_state)
+                    # Compute cost of action
+                    cost = 0
+                    for s in next_state:
+                        cost += (s[0] + s[1])
+                    episode_cost += cost
 
-                # Update state
-                curr_state = next_state
+                    next_state = self.quantizeState(next_state)
+                    next_state = self.stateToIdx(next_state)
+
+                    # Update Q-table using quantized state and cost
+                    self.updateTable(agent, agent_states[agent], agent_actions[agent], cost, next_state)
+                    # Update state
+                    agent_states[agent] = next_state
             
-            # At the end of each episode, update p_explore
+            # For reporting results. If global state, have to normalize so roads aren't double-counted
+            if self.global_state:
+                episode_cost = episode_cost / self.num_agents
             cost_per_episode.append(episode_cost)
 
-        print(np.min(self.table, axis=0))
         # Granularity of reporting
         x = []
         y = []
@@ -157,6 +202,6 @@ class Q_Agent:
         plt.savefig('q_agent.png')
 
         # Save optimal policy to .npy file
-        policy = np.argmin(self.table, axis=1)
+        policy = np.argmin(self.table, axis=2)
         print(policy)
         np.save("policy.npy", policy)

@@ -86,11 +86,11 @@ class State:
             if i < self.sq:
                 numberOfCarsAdded = p.poisson(0.1, 1)[0]
             elif i >= self.dimension - self.sq:
-                numberOfCarsAdded = p.poisson(0.1, 1)[0]
+                numberOfCarsAdded = p.poisson(0.5, 1)[0]
             elif i % self.sq == 0:
-                numberOfCarsAdded = p.poisson(0.6, 1)[0]
+                numberOfCarsAdded = p.poisson(1.0, 1)[0]
             elif i + 1 % self.sq == 0:
-                numberOfCarsAdded = p.poisson(0.6, 1)[0]
+                numberOfCarsAdded = p.poisson(1.0, 1)[0]
             else:
                 continue
             count = 0
@@ -133,25 +133,12 @@ class State:
     def getSpecificState(self, index):
         return self.traffic_lights[index].getTotals()
 
-    def updateSpecificState(self, control, index):
-        self.traffic_lights[index].changeLight(control)
-        # Update the state based on Q - learning control
+    def updateControl(self, control, indices):
+        for i in range(len(control)):
+            self.traffic_lights[indices[i]].changeLight(control[i])
 
-    def updateAll(self):
-        # Add new cars at each timestep
-        self.newCars()
-
-        # Update cars at each light
-        for light in self.traffic_lights:
-            light.updateCars()
-
-    def updateState(self, control):
-        i = 0
-        for light in control:
-            self.traffic_lights[i].changeLight(light)
-            i += 1
-
-        for j in range(2):
+    def updateState(self, num_updates):
+        for j in range(num_updates):
             # Add new cars at each timestep
             self.newCars()
 
