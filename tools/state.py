@@ -7,6 +7,10 @@ import random as r
 from numpy import random as p
 import math
 
+CAPACITY = 250
+LAMBDA_EW = 0.6
+LAMBDA_NS = 0.1
+
 
 def generateRoads(d):
     roads = {}
@@ -69,6 +73,10 @@ def generateLights(roads, mySink, d):
     return traffic_lights
 
 
+def poisson(lam):
+    return p.poisson(lam, 1)[0]
+
+
 class State:
     def __init__(self, d):
         self.mySink = Sink()
@@ -82,46 +90,46 @@ class State:
     def newCars(self):
         self.lastCarsAdded = [[0, 0], [0, 0], [0, 0], [0, 0]]
 
+        if self.getTotalCars() > CAPACITY:
+            return
+
         for i in range(self.dimension):
-            if i < self.sq:
-                numberOfCarsAdded = p.poisson(0.1, 1)[0]
+            numberOfCarsAdded = [0, 0, 0, 0]
+            if i == 0:
+                numberOfCarsAdded[0] = poisson(LAMBDA_NS)
+                numberOfCarsAdded[2] = poisson(LAMBDA_EW)
+            elif i == self.sq-1:
+                numberOfCarsAdded[0] = poisson(LAMBDA_NS)
+                numberOfCarsAdded[3] = poisson(LAMBDA_EW)
+            elif i == self.dimension - self.sq:
+                numberOfCarsAdded[1] = poisson(LAMBDA_NS)
+                numberOfCarsAdded[2] = poisson(LAMBDA_EW)
+            elif i == self.dimension - 1:
+                numberOfCarsAdded[1] = poisson(LAMBDA_NS)
+                numberOfCarsAdded[3] = poisson(LAMBDA_EW)
+            elif i < self.sq:
+                numberOfCarsAdded[0] = poisson(LAMBDA_NS)
             elif i >= self.dimension - self.sq:
-                numberOfCarsAdded = p.poisson(0.1, 1)[0]
+                numberOfCarsAdded[1] = poisson(LAMBDA_NS)
             elif i % self.sq == 0:
-                numberOfCarsAdded = p.poisson(0.6, 1)[0]
+                numberOfCarsAdded[2] = poisson(LAMBDA_EW)
             elif i + 1 % self.sq == 0:
-                numberOfCarsAdded = p.poisson(0.6, 1)[0]
+                numberOfCarsAdded[3] = poisson(LAMBDA_EW)
             else:
                 continue
-            count = 0
-            while count < numberOfCarsAdded:
-                direction = "0"
-                if i < self.sq:
-                    if i == 0:
-                        direction = r.choice(["E", "N"])
-                    elif i == self.sq-1:
-                        direction = r.choice(["W", "N"])
-                    else:
-                        direction = "N"
-                elif i >= self.dimension - self.sq:
-                    if i == self.dimension - self.sq:
-                        direction = r.choice(["E", "S"])
-                    elif i == self.dimension-1:
-                        direction = r.choice(["W", "S"])
-                    else:
-                        direction = "S"
-                elif i % self.sq == 0:
-                    direction = "E"
-                elif i + 1 % self.sq == 0:
-                    direction = "W"
 
-                if direction != "0":
-                    self.roads[i][direction].moveCarsTo(
-                        Car(i, direction, self.dimension))
-                    count += 1
-                else:
-                    break
+            direction = ["N", "S", "E", "W"]
+            for j in range(4):
+                while numberOfCarsAdded[j] > 0:
+                    self.roads[i][direction[j]].moveCarsTo(
+                        Car(i, direction[j], self.dimension))
+                    numberOfCarsAdded[j] -= 1
 
+    def getTotalCars(self):
+        sum = 0
+        for light in self.traffic_lights:
+            sum += (light.getTotals()[0]+light.getTotals()[1])
+        return sum
     # Get current state of the traffic lights for Q - learning
 
     def getState(self):
