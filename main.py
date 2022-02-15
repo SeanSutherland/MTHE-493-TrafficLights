@@ -52,9 +52,6 @@ while True:
 '''
 
 
-q_agent = Q_Agent(4, 4)
+q_agent = Q_Agent(4, 4, 4, False)
 q_agent.trainTable()
 print(q_agent.table)
-
-policy = np.load('2x2.npy')
-np.savetxt('2x2.csv', policy, fmt='%2d')

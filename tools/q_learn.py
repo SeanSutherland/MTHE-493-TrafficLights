@@ -37,7 +37,7 @@ class Q_Agent:
 
         # HYPERPARAMETERS
         # Number of episodes
-        self.n_episodes = 4000
+        self.n_episodes = 2000
         # Max iterations / episode
         self.max_iter = 1000
         # Chance of choosing a random action
@@ -131,7 +131,7 @@ class Q_Agent:
                 curr_state = state.getState()
             else:
                 # Local state, only assign curr_state to subset of whole state
-                curr_state = [ state.getSpecificState(index) for index in agent_lights[agent] ]
+                curr_state = [ state.getSpecificState(index) for index in agent_lights[agent].flatten() ]
 
             curr_state = self.quantizeState(curr_state)
             curr_state = self.stateToIdx(curr_state)
@@ -161,13 +161,15 @@ class Q_Agent:
                 for agent in range(self.num_agents):
                     if self.global_state:
                         next_state = state.getState()
+                        cost_state = next_state
                     else:
                         # Local state, only assign next_state to subset of whole state
-                        next_state = [ state.getSpecificState(index) for index in agent_lights[agent] ]
+                        next_state = [ state.getSpecificState(index) for index in agent_lights[agent].flatten() ]
+                        cost_state = state.getState()
 
                     # Compute cost of action
                     cost = 0
-                    for s in next_state:
+                    for s in cost_state:
                         cost += (s[0] + s[1])
                     episode_cost += cost
 
