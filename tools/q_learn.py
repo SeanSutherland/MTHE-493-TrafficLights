@@ -68,7 +68,7 @@ class Q_Agent:
             idx = np.argmin(self.table[agent,curr_state,:])
 
         # idx is a number whose binary rep. corresponds to light states
-        action = format(idx, '04b')
+        action = format(idx, '0' + str(self.num_lights //  self.num_agents) + 'b')
         action = [int(i) for i in action]
         return idx, action
 
@@ -115,14 +115,15 @@ class Q_Agent:
         agent_states = []
 
         # Length of square
-        length = int(math.sqrt(self.num_lights))
+        agent_length = int(math.sqrt(self.num_lights // self.num_agents))
         # Assign lights to different agents
-        nrows = length // self.num_agents
-        ncols = length // self.num_agents
-        agent_lights = (np.arange(0, self.num_lights).reshape(length, length)
-                    .reshape(length // nrows, nrows, -1, ncols)
+        nrows = agent_length
+        ncols = agent_length
+        agent_lights = (np.arange(0, self.num_lights)
+                    .reshape(int(math.sqrt(self.num_lights)) // nrows, nrows, -1, ncols)
                     .swapaxes(1, 2)
                     .reshape(-1, nrows, ncols))
+        print(agent_lights)
 
         for agent in range(self.num_agents):
             # Check if global state
