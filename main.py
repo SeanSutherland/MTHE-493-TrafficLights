@@ -6,7 +6,7 @@ import math
 import numpy as np
 
 SKIP_FIRST_ITERATIONS = 1000
-DIMS = 1
+DIMS = 16
 
 # Basic logic controller
 
