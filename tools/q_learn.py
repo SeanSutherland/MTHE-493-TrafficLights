@@ -30,7 +30,7 @@ class Q_Agent:
             n_obs = num_bins ** (2 * num_lights // num_agents)
 
         # Initialize Q-table with high cost
-        self.table = np.full((num_agents,n_obs,n_actions), 1000, dtype=np.uint16)
+        self.table = np.full((num_agents,n_obs,n_actions), 100, dtype=np.float32)
 
         # Need this to calculate the state index later
         self.num_bins = num_bins
@@ -39,11 +39,13 @@ class Q_Agent:
         # Number of episodes
         self.n_episodes = 2000
         # Max iterations / episode
-        self.max_iter = 1000
+        self.max_iter = 100000
         # Chance of choosing a random action
-        self.p_explore = 0.5
+        self.p_explore = 0.25
         # Discount factor
         self.gamma = 0.99
+        # Inertia, used in dynamic learning
+        self.inertia = 0.25
         # Learning rate (this is on a per state-action pair basis)
         # Create array of each time state (x,u) is visited
         self.lr = np.full((num_agents,n_obs,n_actions), 1, dtype=np.uint32)
@@ -59,13 +61,16 @@ class Q_Agent:
         self.table[agent,curr_state,action] = new_q
     
     # Gets an action, either random or learned
-    def getAction(self, agent, curr_state):
+    # By default, get from Q table. Otherwise, get from provided table.
+    def getAction(self, agent, curr_state, policy=None):
+        if np.any(policy == None):
+            policy = self.table
         # With prob p_explore, pick a random action
         if np.random.uniform(0,1) < self.p_explore:
             idx = np.random.randint(0, self.table.shape[2])
         # Else, pick learned action
         else:
-            idx = np.argmin(self.table[agent,curr_state,:])
+            idx = np.argmin(policy[agent,curr_state])
 
         # idx is a number whose binary rep. corresponds to light states
         action = format(idx, '0' + str(self.num_lights //  self.num_agents) + 'b')
@@ -154,8 +159,8 @@ class Q_Agent:
                     # Updates lights according to this agent's action
                     state.updateControl(action, agent_lights[agent].flatten())
 
-                # Update simulation (3 steps) according to new lights
-                state.updateState(3)
+                # Update simulation (2 steps) according to new lights
+                state.updateState(2)
 
                 # Get next state for all agents
                 for agent in range(self.num_agents):
@@ -171,7 +176,7 @@ class Q_Agent:
                     cost = 0
                     for s in cost_state:
                         cost += (s[0] + s[1])
-                    episode_cost += cost
+                    episode_cost += cost / self.num_agents
 
                     next_state = self.quantizeState(next_state)
                     next_state = self.stateToIdx(next_state)
@@ -208,3 +213,129 @@ class Q_Agent:
         policy = np.argmin(self.table, axis=2)
         print(policy)
         np.save("policy.npy", policy)
+
+
+    # This method uses the algorithm described in https://mast.queensu.ca/~yuksel/AYTACLearning2017.pdf
+    # The key difference in this algo, which allows it to converge to optimality with stochastic dynamic games,
+    # is that rather than immediately update the policy with the best Q-table action, the policies remain constant
+    # while the Q-table learns. Only after this "exploration phase" is done does the policy update.
+    def trainTableDynamic(self):
+        # Start with arbitrary policy for each agent
+        policy = np.random.randint(self.table.shape[2], size=(self.table.shape[0], self.table.shape[1]))
+
+        # Keep track of progress
+        cost_per_episode = []
+        # Initialize simulation
+        state = State(self.num_lights)
+        # List of states for each Q agent
+        agent_states = []
+
+        # Length of square
+        agent_length = int(math.sqrt(self.num_lights // self.num_agents))
+        # Assign lights to different agents
+        nrows = agent_length
+        ncols = agent_length
+        agent_lights = (np.arange(0, self.num_lights)
+                    .reshape(int(math.sqrt(self.num_lights)) // nrows, nrows, -1, ncols)
+                    .swapaxes(1, 2)
+                    .reshape(-1, nrows, ncols))
+        print(agent_lights)
+
+        for agent in range(self.num_agents):
+            # Check if global state
+            if self.global_state:
+                curr_state = state.getState()
+            else:
+                # Local state, only assign curr_state to subset of whole state
+                curr_state = [ state.getSpecificState(index) for index in agent_lights[agent].flatten() ]
+
+            curr_state = self.quantizeState(curr_state)
+            curr_state = self.stateToIdx(curr_state)
+            agent_states.append(curr_state)
+
+        # Now each "episode" is an exploration phase
+        for e in range(self.n_episodes):
+            print(e)
+            # Cost for this episode
+            episode_cost = 0
+
+            # Iterate through simulation
+            for i in range(self.max_iter):
+                # Start by getting actions for each agent
+                agent_actions = []
+                for agent in range(self.num_agents):
+                    # Get action for this agent
+                    # NOTE: This action is received from the current "best" policy, not from the Q-table
+                    action_idx, action = self.getAction(agent, curr_state, policy)
+                    agent_actions.append(action_idx)
+                    # Updates lights according to this agent's action
+                    state.updateControl(action, agent_lights[agent].flatten())
+
+                # Update simulation (2 steps) according to new lights
+                state.updateState(2)
+
+                # Get next state for all agents
+                for agent in range(self.num_agents):
+                    if self.global_state:
+                        next_state = state.getState()
+                        cost_state = next_state
+                    else:
+                        # Local state, only assign next_state to subset of whole state
+                        next_state = [ state.getSpecificState(index) for index in agent_lights[agent].flatten() ]
+                        cost_state = state.getState()
+
+                    # Compute cost of action
+                    cost = 0
+                    for s in cost_state:
+                        cost += (s[0] + s[1])
+                    episode_cost += cost / self.num_agents
+
+                    next_state = self.quantizeState(next_state)
+                    next_state = self.stateToIdx(next_state)
+
+                    # Update Q-table using quantized state and cost
+                    self.updateTable(agent, agent_states[agent], agent_actions[agent], cost, next_state)
+                    # Update state
+                    agent_states[agent] = next_state
+
+            # NOTE: now need to check if current policy is not too much worse than the policy we'd get by taking 
+            # the argmin of the Q-table. If it's acceptably close, keep it. Otherwise, keep it or switch to
+            # to an acceptably close policy with probability given by the inertia
+            thresh = 1
+            almost_best = np.min(self.table, axis=2) + thresh
+            for agent in range(self.num_agents):
+                # Check if current policy is good enough
+                test = [self.table[agent, x, policy[agent, x]] > almost_best[agent, x] for x in range(self.table.shape[2])]
+                if np.any(test):
+                    # At least one state thats not good enough
+                    if np.random.uniform(0,1) > self.inertia:
+                        # Switch to new acceptable policy
+                        for x in range(self.table.shape[2]):
+                            indices = np.asarray(self.table[agent, x, :] < almost_best[agent, x]).nonzero()
+                            choice = np.random.choice(indices[0])
+                            policy[agent, x] = choice
+                # Else, do nothing (keep same policy)
+                
+            # Now reset Q-table to re-learn
+            print(np.min(self.table, axis=2))
+            self.table[:,:,:] = 100
+            self.lr[:,:,:] = 1
+
+        # Granularity of reporting
+        x = []
+        y = []
+        g = 100
+        for i in range(int(self.n_episodes / g)):
+            print((i+1)*g," : mean cars in system: ",\
+                np.mean(cost_per_episode[g*i:g*(i+1)]) / self.max_iter)
+            x.append((i+1)*g*self.max_iter)
+            y.append(np.mean(cost_per_episode[g*i:g*(i+1)]) / self.max_iter)
+        
+        fig, ax = plt.subplots()
+        plt.ylabel('Mean cars in system')
+        plt.xlabel('Number of iterations')
+        plt.title('Q-Agent Development')
+        ax.plot(x, y)
+        plt.show()
+        plt.savefig('q_agent.png')
+        return policy
