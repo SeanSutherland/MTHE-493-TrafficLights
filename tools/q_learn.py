@@ -41,11 +41,11 @@ class Q_Agent:
         # Max iterations / episode
         self.max_iter = 100000
         # Chance of choosing a random action
-        self.p_explore = 0.25
+        self.p_explore = 0.05
         # Discount factor
         self.gamma = 0.99
         # Inertia, used in dynamic learning
-        self.inertia = 0.25
+        self.inertia = 0.1
         # Learning rate (this is on a per state-action pair basis)
         # Create array of each time state (x,u) is visited
         self.lr = np.full((num_agents,n_obs,n_actions), 1, dtype=np.uint32)
@@ -61,16 +61,27 @@ class Q_Agent:
         self.table[agent,curr_state,action] = new_q
     
     # Gets an action, either random or learned
-    # By default, get from Q table. Otherwise, get from provided table.
-    def getAction(self, agent, curr_state, policy=None):
-        if np.any(policy == None):
-            policy = self.table
+    def getAction(self, agent, curr_state):
         # With prob p_explore, pick a random action
         if np.random.uniform(0,1) < self.p_explore:
             idx = np.random.randint(0, self.table.shape[2])
         # Else, pick learned action
         else:
-            idx = np.argmin(policy[agent,curr_state])
+            idx = np.argmin(self.table[agent,curr_state,:])
+
+        # idx is a number whose binary rep. corresponds to light states
+        action = format(idx, '0' + str(self.num_lights //  self.num_agents) + 'b')
+        action = [int(i) for i in action]
+        return idx, action
+
+    # Gets an action, either random or from a fixed policy
+    def getActionFromPolicy(self, agent, curr_state, policy):
+        # With prob p_explore, pick a random action
+        if np.random.uniform(0,1) < self.p_explore:
+            idx = np.random.randint(0, self.table.shape[2])
+        # Else, pick action from policy
+        else:
+            idx = policy[agent,curr_state]
 
         # idx is a number whose binary rep. corresponds to light states
         action = format(idx, '0' + str(self.num_lights //  self.num_agents) + 'b')
@@ -176,7 +187,7 @@ class Q_Agent:
                     cost = 0
                     for s in cost_state:
                         cost += (s[0] + s[1])
-                    episode_cost += cost / self.num_agents
+                    episode_cost += cost
 
                     next_state = self.quantizeState(next_state)
                     next_state = self.stateToIdx(next_state)
@@ -190,11 +201,12 @@ class Q_Agent:
             if self.global_state:
                 episode_cost = episode_cost / self.num_agents
             cost_per_episode.append(episode_cost)
+            print(episode_cost / self.max_iter)
 
         # Granularity of reporting
         x = []
         y = []
-        g = 100
+        g = 5
         for i in range(int(self.n_episodes / g)):
             print((i+1)*g," : mean cars in system: ",\
                 np.mean(cost_per_episode[g*i:g*(i+1)]) / self.max_iter)
@@ -266,7 +278,7 @@ class Q_Agent:
                 for agent in range(self.num_agents):
                     # Get action for this agent
                     # NOTE: This action is received from the current "best" policy, not from the Q-table
-                    action_idx, action = self.getAction(agent, curr_state, policy)
+                    action_idx, action = self.getActionFromPolicy(agent, agent_states[agent], policy)
                     agent_actions.append(action_idx)
                     # Updates lights according to this agent's action
                     state.updateControl(action, agent_lights[agent].flatten())
@@ -288,7 +300,7 @@ class Q_Agent:
                     cost = 0
                     for s in cost_state:
                         cost += (s[0] + s[1])
-                    episode_cost += cost / self.num_agents
+                    episode_cost += cost
 
                     next_state = self.quantizeState(next_state)
                     next_state = self.stateToIdx(next_state)
@@ -298,6 +310,12 @@ class Q_Agent:
                     # Update state
                     agent_states[agent] = next_state
 
+            # For reporting results. If global state, have to normalize so roads aren't double-counted
+            if self.global_state:
+                episode_cost = episode_cost / self.num_agents
+            cost_per_episode.append(episode_cost)
+            print(episode_cost / self.max_iter)
+
             # NOTE: now need to check if current policy is not too much worse than the policy we'd get by taking 
             # the argmin of the Q-table. If it's acceptably close, keep it. Otherwise, keep it or switch to
             # to an acceptably close policy with probability given by the inertia
@@ -305,26 +323,24 @@ class Q_Agent:
             almost_best = np.min(self.table, axis=2) + thresh
             for agent in range(self.num_agents):
                 # Check if current policy is good enough
-                test = [self.table[agent, x, policy[agent, x]] > almost_best[agent, x] for x in range(self.table.shape[2])]
+                test = [self.table[agent, x, policy[agent, x]] > almost_best[agent, x] for x in range(self.table.shape[1])]
                 if np.any(test):
                     # At least one state thats not good enough
                     if np.random.uniform(0,1) > self.inertia:
                         # Switch to new acceptable policy
-                        for x in range(self.table.shape[2]):
+                        for x in range(self.table.shape[1]):
                             indices = np.asarray(self.table[agent, x, :] < almost_best[agent, x]).nonzero()
                             choice = np.random.choice(indices[0])
                             policy[agent, x] = choice
                 # Else, do nothing (keep same policy)
                 
-            # Now reset Q-table to re-learn
-            print(np.min(self.table, axis=2))
-            self.table[:,:,:] = 100
+            # Reset LR after each episode
             self.lr[:,:,:] = 1
 
         # Granularity of reporting
         x = []
         y = []
-        g = 100
+        g = 5
         for i in range(int(self.n_episodes / g)):
             print((i+1)*g," : mean cars in system: ",\
                 np.mean(cost_per_episode[g*i:g*(i+1)]) / self.max_iter)
