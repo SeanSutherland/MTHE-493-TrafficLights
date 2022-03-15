@@ -1,6 +1,6 @@
 from tools.state import State
 from tools.q_learn import Q_Agent
-from tools.g import GUI
+#from tools.g import GUI
 import time
 import math
 import numpy as np
@@ -52,6 +52,6 @@ while True:
 '''
 
 
-q_agent = Q_Agent(4, 4, 4, False)
+q_agent = Q_Agent(4, 4, 4, True)
 q_agent.trainTable()
-print(q_agent.table)
+#policy = q_agent.trainTableDynamic()

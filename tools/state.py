@@ -8,7 +8,7 @@ from numpy import random as p
 import math
 
 CAPACITY = 250
-LAMBDA_EW = 0.4
+LAMBDA_EW = 0.25
 LAMBDA_NS = 0.1
 
 

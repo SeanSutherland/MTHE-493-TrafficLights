@@ -37,11 +37,11 @@ class Q_Agent:
 
         # HYPERPARAMETERS
         # Number of episodes
-        self.n_episodes = 2000
+        self.n_episodes = 10
         # Max iterations / episode
-        self.max_iter = 100000
+        self.max_iter = 10000
         # Chance of choosing a random action
-        self.p_explore = 0.05
+        self.p_explore = 0.25
         # Discount factor
         self.gamma = 0.99
         # Inertia, used in dynamic learning
@@ -173,22 +173,21 @@ class Q_Agent:
                 # Update simulation (2 steps) according to new lights
                 state.updateState(2)
 
+                # Compute cost of action
+                cost_state = state.getState()
+                cost = 0
+                for s in cost_state:
+                    cost += (s[0] + s[1])
+                episode_cost += cost
+
                 # Get next state for all agents
                 for agent in range(self.num_agents):
                     if self.global_state:
                         next_state = state.getState()
-                        cost_state = next_state
                     else:
                         # Local state, only assign next_state to subset of whole state
                         next_state = [ state.getSpecificState(index) for index in agent_lights[agent].flatten() ]
-                        cost_state = state.getState()
-
-                    # Compute cost of action
-                    cost = 0
-                    for s in cost_state:
-                        cost += (s[0] + s[1])
-                    episode_cost += cost
-
+                        
                     next_state = self.quantizeState(next_state)
                     next_state = self.stateToIdx(next_state)
 
@@ -197,16 +196,14 @@ class Q_Agent:
                     # Update state
                     agent_states[agent] = next_state
             
-            # For reporting results. If global state, have to normalize so roads aren't double-counted
-            if self.global_state:
-                episode_cost = episode_cost / self.num_agents
+            # For reporting results
             cost_per_episode.append(episode_cost)
             print(episode_cost / self.max_iter)
 
         # Granularity of reporting
         x = []
         y = []
-        g = 5
+        g = 1
         for i in range(int(self.n_episodes / g)):
             print((i+1)*g," : mean cars in system: ",\
                 np.mean(cost_per_episode[g*i:g*(i+1)]) / self.max_iter)
@@ -237,6 +234,7 @@ class Q_Agent:
 
         # Keep track of progress
         cost_per_episode = []
+        episode_iterations = []
         # Initialize simulation
         state = State(self.num_lights)
         # List of states for each Q agent
@@ -270,9 +268,10 @@ class Q_Agent:
             print(e)
             # Cost for this episode
             episode_cost = 0
-
-            # Iterate through simulation
-            for i in range(self.max_iter):
+            # Iterate through simulation, running longer as it gets closer to convergence
+            iterations = max(self.max_iter * e // self.n_episodes, 10000)
+            episode_iterations.append(iterations)
+            for i in range(iterations):
                 # Start by getting actions for each agent
                 agent_actions = []
                 for agent in range(self.num_agents):
@@ -285,22 +284,21 @@ class Q_Agent:
 
                 # Update simulation (2 steps) according to new lights
                 state.updateState(2)
+                
+                # Compute cost of action
+                cost_state = state.getState()
+                cost = 0
+                for s in cost_state:
+                    cost += (s[0] + s[1])
+                episode_cost += cost
 
                 # Get next state for all agents
                 for agent in range(self.num_agents):
                     if self.global_state:
                         next_state = state.getState()
-                        cost_state = next_state
                     else:
                         # Local state, only assign next_state to subset of whole state
                         next_state = [ state.getSpecificState(index) for index in agent_lights[agent].flatten() ]
-                        cost_state = state.getState()
-
-                    # Compute cost of action
-                    cost = 0
-                    for s in cost_state:
-                        cost += (s[0] + s[1])
-                    episode_cost += cost
 
                     next_state = self.quantizeState(next_state)
                     next_state = self.stateToIdx(next_state)
@@ -310,21 +308,22 @@ class Q_Agent:
                     # Update state
                     agent_states[agent] = next_state
 
-            # For reporting results. If global state, have to normalize so roads aren't double-counted
-            if self.global_state:
-                episode_cost = episode_cost / self.num_agents
+            # For reporting results
             cost_per_episode.append(episode_cost)
-            print(episode_cost / self.max_iter)
+            print(episode_cost / iterations)
 
             # NOTE: now need to check if current policy is not too much worse than the policy we'd get by taking 
             # the argmin of the Q-table. If it's acceptably close, keep it. Otherwise, keep it or switch to
             # to an acceptably close policy with probability given by the inertia
-            thresh = 1
+            thresh = 0.5
             almost_best = np.min(self.table, axis=2) + thresh
+            print(self.table)
+            print(policy)
             for agent in range(self.num_agents):
                 # Check if current policy is good enough
                 test = [self.table[agent, x, policy[agent, x]] > almost_best[agent, x] for x in range(self.table.shape[1])]
                 if np.any(test):
+                    print("not good enough")
                     # At least one state thats not good enough
                     if np.random.uniform(0,1) > self.inertia:
                         # Switch to new acceptable policy
@@ -333,19 +332,20 @@ class Q_Agent:
                             choice = np.random.choice(indices[0])
                             policy[agent, x] = choice
                 # Else, do nothing (keep same policy)
+            print(policy)
                 
             # Reset LR after each episode
             self.lr[:,:,:] = 1
+            
 
-        # Granularity of reporting
+        # Reporting
         x = []
         y = []
-        g = 5
-        for i in range(int(self.n_episodes / g)):
-            print((i+1)*g," : mean cars in system: ",\
-                np.mean(cost_per_episode[g*i:g*(i+1)]) / self.max_iter)
-            x.append((i+1)*g*self.max_iter)
-            y.append(np.mean(cost_per_episode[g*i:g*(i+1)]) / self.max_iter)
+        for i in range(int(self.n_episodes)):
+            print((i+1)," : mean cars in system: ",\
+                cost_per_episode[i] / episode_iterations[i])
+            x.append((i+1)*episode_iterations[i])
+            y.append(np.mean(cost_per_episode[i]) / episode_iterations[i])
         
         fig, ax = plt.subplots()
         plt.ylabel('Mean cars in system')
