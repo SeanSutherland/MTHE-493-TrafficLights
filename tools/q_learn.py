@@ -39,7 +39,7 @@ class Q_Agent:
         # Number of episodes
         self.n_episodes = 10
         # Max iterations / episode
-        self.max_iter = 10000
+        self.max_iter = 1000000
         # Chance of choosing a random action
         self.p_explore = 0.25
         # Discount factor
@@ -197,7 +197,7 @@ class Q_Agent:
                     agent_states[agent] = next_state
             
             # For reporting results
-            cost_per_episode.append(episode_cost)
+            cost_per_episode.append(episode_cost / self.max_iter)
             print(episode_cost / self.max_iter)
 
         # Granularity of reporting
@@ -206,9 +206,9 @@ class Q_Agent:
         g = 1
         for i in range(int(self.n_episodes / g)):
             print((i+1)*g," : mean cars in system: ",\
-                np.mean(cost_per_episode[g*i:g*(i+1)]) / self.max_iter)
+                np.mean(cost_per_episode[g*i:g*(i+1)]))
             x.append((i+1)*g*self.max_iter)
-            y.append(np.mean(cost_per_episode[g*i:g*(i+1)]) / self.max_iter)
+            y.append(np.mean(cost_per_episode[g*i:g*(i+1)]))
         
         fig, ax = plt.subplots()
         plt.ylabel('Mean cars in system')
@@ -222,7 +222,8 @@ class Q_Agent:
         policy = np.argmin(self.table, axis=2)
         print(policy)
         np.save("policy.npy", policy)
-
+        np.savetxt('centralized.csv', cost_per_episode, fmt='%.3f')
+        
 
     # This method uses the algorithm described in https://mast.queensu.ca/~yuksel/AYTACLearning2017.pdf
     # The key difference in this algo, which allows it to converge to optimality with stochastic dynamic games,
@@ -317,13 +318,10 @@ class Q_Agent:
             # to an acceptably close policy with probability given by the inertia
             thresh = 0.5
             almost_best = np.min(self.table, axis=2) + thresh
-            print(self.table)
-            print(policy)
             for agent in range(self.num_agents):
                 # Check if current policy is good enough
                 test = [self.table[agent, x, policy[agent, x]] > almost_best[agent, x] for x in range(self.table.shape[1])]
                 if np.any(test):
-                    print("not good enough")
                     # At least one state thats not good enough
                     if np.random.uniform(0,1) > self.inertia:
                         # Switch to new acceptable policy
@@ -332,7 +330,6 @@ class Q_Agent:
                             choice = np.random.choice(indices[0])
                             policy[agent, x] = choice
                 # Else, do nothing (keep same policy)
-            print(policy)
                 
             # Reset LR after each episode
             self.lr[:,:,:] = 1
@@ -354,4 +351,35 @@ class Q_Agent:
         ax.plot(x, y)
         plt.show()
         plt.savefig('q_agent.png')
-        return policy
+        np.savetxt('decentralized_local.csv', cost_per_episode, fmt='%.3f')
+        np.savetxt('decentralized_local_episodes.csv', np.asarray(episode_iterations), fmt='%d')
+        np.save("decentralized_policy.npy", policy)
+
+    # For performance evaluation
+    def updateControlandState(self, state, agent_states, agent_lights, policy):
+        # Start by getting actions for each agent
+        agent_actions = []
+        for agent in range(self.num_agents):
+            # Get action for this agent
+            # NOTE: This action is received from the current "best" policy, not from the Q-table
+            action_idx, action = self.getActionFromPolicy(agent, agent_states[agent], policy)
+            agent_actions.append(action_idx)
+            # Updates lights according to this agent's action
+            state.updateControl(action, agent_lights[agent].flatten())
+
+        # Update simulation (2 steps) according to new lights
+        state.updateState(2)
+
+        # Get next state for all agents
+        for agent in range(self.num_agents):
+            if self.global_state:
+                next_state = state.getState()
+            else:
+                # Local state, only assign next_state to subset of whole state
+                next_state = [ state.getSpecificState(index) for index in agent_lights[agent].flatten() ]
+
+            next_state = self.quantizeState(next_state)
+            next_state = self.stateToIdx(next_state)
+            
+            # Update state
+            agent_states[agent] = next_state
